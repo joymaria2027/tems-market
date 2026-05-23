@@ -1,0 +1,17 @@
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/DESIGN_BRIEF.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/PRD.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/CLAUDE.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/prd.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/README.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/index.html
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/public/robots.txt
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/docs/specs/branding-currency-spec.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/docs/files/tems-market-HOOKS.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/docs/files/tems-market-SPEC.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/docs/files/skill-commission-rules.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/docs/files/branding-currency-plan.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/docs/files/skill-edge-function.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/docs/files/tems-market-TASKS.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/docs/files/tems-market-REPLIT-PROMPT.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/docs/files/skill-payment-rules.md
+/home/aixrichlian/Downloads/lovable-project-151b6c0c/public/placeholder.svg

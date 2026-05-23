@@ -1,0 +1,1 @@
+DROP POLICY "Anyone can look up affiliate by code" ON public.affiliates;
