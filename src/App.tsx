@@ -35,6 +35,8 @@ import AdminGuard from "./components/AdminGuard";
 import SuperAdminGuard from "./components/SuperAdminGuard";
 import Affiliate from "./pages/Affiliate";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import UpdatePassword from "./pages/UpdatePassword";
 import Signup from "./pages/Signup";
 import SelectRole from "./pages/SelectRole";
 import NotFound from "./pages/NotFound";
@@ -65,6 +67,8 @@ const App = () => (
             <Route path="/apply-as-vendor" element={<ApplyAsVendor />} />
             <Route path="/vendor-invite/:token" element={<VendorInvite />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/select-role" element={<SelectRole />} />
             <Route path="/vendor/dashboard" element={<VendorDashboard />} />

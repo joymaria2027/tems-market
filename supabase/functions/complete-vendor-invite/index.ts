@@ -7,6 +7,12 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
+import {
+  validateToken,
+  validatePassword,
+  validateApplicationStatus,
+  buildUserMetadata,
+} from "./helpers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,17 +28,20 @@ serve(async (req: Request) => {
   try {
     const { token, password } = await req.json();
 
-    if (!token || typeof token !== "string") {
+    // ── Validate inputs ──────────────────────────────────
+    const tokenCheck = validateToken(token);
+    if (!tokenCheck.valid) {
       return new Response(
-        JSON.stringify({ error: "Invite token is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: tokenCheck.error }),
+        { status: tokenCheck.status!, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    if (!password || typeof password !== "string" || password.length < 6) {
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.valid) {
       return new Response(
-        JSON.stringify({ error: "Password must be at least 6 characters" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: passwordCheck.error }),
+        { status: passwordCheck.status!, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -51,39 +60,16 @@ serve(async (req: Request) => {
 
     if (appErr) throw appErr;
 
-    if (!app) {
+    const appCheck = validateApplicationStatus(app);
+    if (!appCheck.valid) {
       return new Response(
-        JSON.stringify({ error: "Invalid invite link" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    if (app.status === "completed") {
-      return new Response(
-        JSON.stringify({ error: "This invite has already been used. Please sign in instead." }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    if (app.status !== "approved") {
-      return new Response(
-        JSON.stringify({ error: "Invalid invite link" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    if (app.invite_expires_at && new Date(app.invite_expires_at) < new Date()) {
-      return new Response(
-        JSON.stringify({ error: "This invite has expired. Contact your admin for a new one." }),
-        { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: appCheck.error }),
+        { status: appCheck.status!, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     // ── 2. Create auth user ──────────────────────────────
-    const phone = app.phone.startsWith("+") ? app.phone : `+${app.phone}`;
-    const extraData = app.extra_data || {};
-    const fullName = extraData.fullName || app.business_name;
-    const email = extraData.email || null;
+    const { phone, email, fullName, metadata } = buildUserMetadata(app!);
 
     const { data: authUser, error: createErr } = await supabase.auth.admin.createUser({
       phone,
@@ -91,11 +77,7 @@ serve(async (req: Request) => {
       password,
       email_confirm: true,
       phone_confirm: true,
-      user_metadata: {
-        role: "vendor",
-        phone: app.phone,
-        full_name: fullName,
-      },
+      user_metadata: metadata,
     });
 
     if (createErr) {
@@ -122,7 +104,7 @@ serve(async (req: Request) => {
         role: "vendor",
         status: "active",
         full_name: fullName,
-        phone: app.phone,
+        phone: app!.phone,
         email: email,
       })
       .eq("id", authUser.user.id);
@@ -137,8 +119,8 @@ serve(async (req: Request) => {
       .from("vendor_profiles")
       .upsert({
         user_id: authUser.user.id,
-        business_name: app.business_name,
-        category: app.category,
+        business_name: app!.business_name,
+        category: app!.category,
       }, { onConflict: "user_id" });
 
     if (vpErr) {
@@ -150,19 +132,19 @@ serve(async (req: Request) => {
     const { error: updateAppErr } = await supabase
       .from("vendor_applications")
       .update({ status: "completed" })
-      .eq("id", app.id);
+      .eq("id", app!.id);
 
     if (updateAppErr) {
       console.error("complete-vendor-invite: app status update failed", updateAppErr.message);
     }
 
-    console.log(`✅ Vendor invite completed: ${app.business_name} (${phone})`);
+    console.log(`✅ Vendor invite completed: ${app!.business_name} (${phone})`);
 
     return new Response(
       JSON.stringify({
         success: true,
         userId: authUser.user.id,
-        businessName: app.business_name,
+        businessName: app!.business_name,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

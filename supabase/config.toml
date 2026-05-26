@@ -1,5 +1,9 @@
 project_id = "vawcbbnnjhuitqxabygs"
 
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/**"]
+
 [functions.request-otp]
 verify_jwt = false
 

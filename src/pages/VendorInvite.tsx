@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { validatePasswordForm } from "@/lib/validatePasswordForm";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/layout/Layout";
@@ -83,12 +84,9 @@ const VendorInvite = () => {
   const handleSetup = async () => {
     setPasswordError("");
 
-    if (password.length < 6) {
-      setPasswordError("Password must be at least 6 characters");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setPasswordError("Passwords do not match");
+    const validation = validatePasswordForm(password, confirmPassword);
+    if (!validation.valid) {
+      setPasswordError(validation.error!);
       return;
     }
 

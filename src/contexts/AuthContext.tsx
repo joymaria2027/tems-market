@@ -47,9 +47,17 @@ interface AuthContextType {
   updateRole: (role: "customer" | "affiliate") => Promise<void>;
   // Sign out
   signOut: () => Promise<void>;
-  // Update password
+  // Update password (authenticated user — requires current password, calls Edge Function)
   updatePassword: (
     currentPassword: string,
+    newPassword: string,
+  ) => Promise<{ error: Error | null }>;
+  // Password reset via email link (sends reset email)
+  resetPasswordEmail: (
+    email: string,
+  ) => Promise<{ error: Error | null }>;
+  // Set new password after recovery link (uses auth scope set by recovery link)
+  updateUserPassword: (
     newPassword: string,
   ) => Promise<{ error: Error | null }>;
   // Refresh profile
@@ -204,6 +212,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // ─── Password reset via email link ──────────────────────────────────────────────
+
+  const resetPasswordEmail = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/update-password`,
+    });
+    return { error: error as Error | null };
+  };
+
+  // ─── Set new password after recovery link click ─────────────────────────────────
+
+  const updateUserPassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error: error as Error | null };
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -215,6 +239,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         verifyOTP,
         signInWithEmail,
         updatePassword,
+        resetPasswordEmail,
+        updateUserPassword,
         updateProfile,
         updateRole,
         signOut,

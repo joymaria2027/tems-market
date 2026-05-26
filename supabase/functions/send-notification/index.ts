@@ -23,6 +23,7 @@ import {
   sendViaSms,
   logNotification,
 } from "./helpers.ts";
+import { handleNotificationRequest } from "./handler.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,122 +31,40 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-interface NotificationRequest {
-  phone: string;
-  message: string;
-  type: string;
-  userId?: string;
-}
-
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // ── Validate request ────────────────────────────────
-    const { phone, message, type, userId }: NotificationRequest = await req.json();
+    const body = await req.json();
 
-    if (!phone || typeof phone !== "string") {
-      return new Response(
-        JSON.stringify({ error: "Phone number is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    if (!message || typeof message !== "string") {
-      return new Response(
-        JSON.stringify({ error: "Message is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    if (!type || typeof type !== "string") {
-      return new Response(
-        JSON.stringify({ error: "Notification type is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    const normalizedPhone = normalizePhone(phone);
-
-    // ── Environment variables ────────────────────────────
-    const metaAccessToken = Deno.env.get("META_WHATSAPP_ACCESS_TOKEN");
-    const metaPhoneNumberId = Deno.env.get("META_WHATSAPP_PHONE_NUMBER_ID");
-    const africaTalkingApiKey = Deno.env.get("AFRICA_TALKING_API_KEY");
-    const africaTalkingUsername = Deno.env.get("AFRICA_TALKING_USERNAME");
-
-    const hasWhatsApp = !!metaAccessToken && !!metaPhoneNumberId;
-    const hasSms = !!africaTalkingApiKey && !!africaTalkingUsername;
-
-    // Service role client for logging
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    let channel: "whatsapp" | "sms" = "sms";
-    let metaMessageId: string | undefined;
-    let atMessageId: string | undefined;
-    let deliverySuccess = false;
-    let deliveryError: string | undefined;
+    const env = {
+      META_WHATSAPP_ACCESS_TOKEN: Deno.env.get("META_WHATSAPP_ACCESS_TOKEN"),
+      META_WHATSAPP_PHONE_NUMBER_ID: Deno.env.get("META_WHATSAPP_PHONE_NUMBER_ID"),
+      AFRICA_TALKING_API_KEY: Deno.env.get("AFRICA_TALKING_API_KEY"),
+      AFRICA_TALKING_USERNAME: Deno.env.get("AFRICA_TALKING_USERNAME"),
+    };
 
-    // ── Try WhatsApp first ───────────────────────────────
-    if (hasWhatsApp) {
-      console.log(`send-notification: sending via WhatsApp to ${normalizedPhone}`);
-      const result = await sendViaWhatsApp(normalizedPhone, message, metaAccessToken!, metaPhoneNumberId!);
-
-      if (result.ok) {
-        channel = "whatsapp";
-        metaMessageId = result.messageId;
-        deliverySuccess = true;
-      } else {
-        console.warn(`send-notification: WhatsApp failed, will try SMS fallback: ${result.error}`);
-        deliveryError = result.error;
-      }
-    } else {
-      console.log("send-notification: WhatsApp not configured, using SMS fallback");
-    }
-
-    // ── Fallback to SMS if WhatsApp didn't succeed ───────
-    if (!deliverySuccess && hasSms) {
-      console.log(`send-notification: sending via SMS to ${normalizedPhone}`);
-      const result = await sendViaSms(normalizedPhone, message, africaTalkingApiKey!, africaTalkingUsername!);
-
-      if (result.ok) {
-        channel = "sms";
-        atMessageId = result.messageId;
-        deliverySuccess = true;
-      } else {
-        console.error(`send-notification: SMS also failed: ${result.error}`);
-        deliveryError = `${deliveryError ? deliveryError + "; " : ""}SMS failed: ${result.error}`;
-      }
-    }
-
-    // ── Log to notifications_log ─────────────────────────
-    // logNotification handles undefined userId gracefully (omits user_id from record)
-    await logNotification(supabase, userId, type, channel, message, metaMessageId, atMessageId);
-
-    if (!deliverySuccess) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: deliveryError || "No notification channel available. Configure META_WHATSAPP_ACCESS_TOKEN or AFRICA_TALKING_API_KEY.",
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    console.log(`✅ Notification sent via ${channel} to ${normalizedPhone}`);
+    const result = await handleNotificationRequest(body, env, {
+      normalizePhone,
+      sendViaWhatsApp,
+      sendViaSms,
+      logNotification,
+      supabase,
+    });
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        channel,
-        metaMessageId,
-        atMessageId,
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify(result.body),
+      {
+        status: result.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
