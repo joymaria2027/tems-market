@@ -21,6 +21,13 @@ interface CachedRates {
   ts: number;
 }
 
+interface FrankfurterRate {
+  date: string;
+  base: string;
+  quote: string;
+  rate: number;
+}
+
 export const useCurrency = () => {
   const [currency, setCurrencyState] = useState<Currency>(() => {
     const saved = localStorage.getItem(PREF_KEY);
@@ -43,16 +50,41 @@ export const useCurrency = () => {
     }
 
     setLoading(true);
-    fetch("https://open.exchangerate-api.com/v6/latest/GMD")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.rates) {
-          setRates(data.rates);
-          localStorage.setItem(CACHE_KEY, JSON.stringify({ rates: data.rates, ts: Date.now() }));
+    
+    // Fetch from Frankfurter API (v2) with fallback to ExchangeRate-API
+    fetch("https://api.frankfurter.dev/v2/rates?base=GMD")
+      .then((r) => {
+        if (!r.ok) throw new Error("Frankfurter API returned non-OK status");
+        return r.json();
+      })
+      .then((data: FrankfurterRate[]) => {
+        if (Array.isArray(data)) {
+          const mappedRates: Record<string, number> = { GMD: 1 };
+          data.forEach((item) => {
+            mappedRates[item.quote] = item.rate;
+          });
+          setRates(mappedRates);
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ rates: mappedRates, ts: Date.now() }));
+          setLoading(false);
+        } else {
+          throw new Error("Frankfurter API did not return an array of rates");
         }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        console.warn("Frankfurter API failed, attempting fallback to ExchangeRate-API:", err);
+        fetch("https://open.exchangerate-api.com/v6/latest/GMD")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data?.rates) {
+              setRates(data.rates);
+              localStorage.setItem(CACHE_KEY, JSON.stringify({ rates: data.rates, ts: Date.now() }));
+            }
+          })
+          .catch((fallbackErr) => {
+            console.error("All exchange rate API calls failed:", fallbackErr);
+          })
+          .finally(() => setLoading(false));
+      });
   }, []);
 
   const setCurrency = useCallback((c: Currency) => {
