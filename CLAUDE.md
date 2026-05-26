@@ -2,7 +2,7 @@
 
 Tems Market is a 5-role layered-margin social commerce marketplace for The Gambia.
 Roles: Superadmin (owner), Admin (operators), Vendor (resellers), Affiliate (link sharers), Customer (shoppers).
-Stack: Expo 52 + Supabase + ModemPay + Groq + Twilio + Resend.
+Stack: Vite + React + Supabase + ModemPay + Twilio + Resend (web app).
 Full feature spec: `tems-market-PRD.md`. Task breakdown: `tems-market-TASKS.md`. SQL schema: `tems-market-schema.sql`.
 ADRs: `docs/decisions/`. Inspiration screenshots: `docs/inspiration/`.
 
@@ -12,8 +12,18 @@ ADRs: `docs/decisions/`. Inspiration screenshots: `docs/inspiration/`.
 
 ## Current State
 
-**Phase 0 (Environment):** Not started.
-**Phase 1 (Database + Auth):** Not started.
+**Phase 0 (Environment):** Complete. [Supabase TypeScript types generated, ModemPay keys configured, webhook secret set]
+**Phase 1 (Database + Auth):** In progress.
+  * [x] Target schema migration applied (20+ tables, RLS, triggers, functions, enums, seed data)
+  * [x] TypeScript types regenerated from local schema
+  * [x] `request-otp` Edge Function — phone OTP via Supabase Auth
+  * [x] `verify-otp` Edge Function — OTP verification + failsafe user creation
+  * [x] `modempay-webhook` Edge Function — payment webhook handler (HMAC verified, commission split)
+  * [x] AuthContext — phone OTP flow with `setSession` binding
+  * [x] ModemPay keys + webhook secret in `.env`
+  * [ ] Phone OTP auth pages (Login/Signup/SelectRole)
+  * [ ] Admin approve-vendor Edge Function
+  * [ ] Seed data for local dev
 **Phase 2 (Core Commerce):** Not started.
 **Phase 3 (Transactions):** Not started.
 **Phase 4 (Polish + Launch):** Not started.
@@ -35,6 +45,7 @@ ADRs: `docs/decisions/`. Inspiration screenshots: `docs/inspiration/`.
 - [ ] Open: Gift card expiry period not confirmed (placeholder: 12 months).
 - [ ] Open: Vendor monthly subscription price via RevenueCat not confirmed.
 - [ ] Open: Vendor affiliate opt-in toggle not yet added to vendor_listings table — needed before Phase 3.
+- [ ] **GITHUB TOKEN EXPOSED:** The `GITHUB_TOKEN=ghp_...` in `.env` was exposed in plaintext before `.env` was gitignored. Rotate/revoke at github.com/settings/tokens.
 
 ---
 
@@ -138,11 +149,11 @@ Display: formatGMD() always — never raw numbers in JSX
 ## Engineering Patterns
 
 ### Styling
-- All design tokens live in `constants/theme.ts` — no ad-hoc values anywhere in component files
-- NativeWind className for all layout — no StyleSheet objects
-- Color palette, typography, border radius, icon set, and spacing scale: **TBD with designer — do not infer or default**
-- When designer has not yet defined a token: use a clearly named placeholder in `constants/theme.ts` (e.g. `colors.primary = 'TBD'`) so it is obvious what needs filling in
-- Never pick a color, font, or icon set independently — these are designer decisions
+- Tailwind CSS via shadcn/ui design system — CSS variables in `src/index.css`
+- Color palette defined as HSL CSS custom properties on `:root` and `.dark`
+- Font: Inter (Google Fonts import in `src/index.css`)
+- UI components in `src/components/ui/` — standard shadcn pattern
+- All design tokens are CSS variables — no ad-hoc values
 
 ### No AI Slop Policy
 Banned UI patterns:
@@ -167,22 +178,19 @@ Imperative. No emoji. Under 72 chars.
 
 ```bash
 # Dev
-bunx expo start
+bun run dev
+bun run build
 bunx tsc --noEmit
-bunx jest && bunx jest --coverage
+bun run test
 
-# Supabase
-bunx supabase start | db reset | db push | functions serve
-bunx supabase gen types typescript --local > types/supabase.ts
+# Supabase (local)
+cd supabase && npx supabase start
+npx supabase db reset
+npx supabase functions serve
+npx supabase gen types typescript --local > src/integrations/supabase/types.ts
 
 # E2E
-maestro test e2e/<flow>.yaml
-
-# Visual verification
-adb exec-out screencap -p > docs/screenshots/<feature_name>.png
-
-# Build
-eas build --platform all --profile production
+bunx playwright test
 ```
 
 ---
@@ -292,3 +300,4 @@ Agent MUST do this at end of every session:
 | ADR-010 | No peer-to-peer credit transfer. Simpler product, zero regulatory grey area, no transfer Edge Function complexity. Gift cards are the gifting mechanism. | ✅ Confirmed |
 | ADR-011 | Platform fee (1% of margins) and vendor/affiliate payouts are commercial revenue and accounts payable — not stored value. Paying vendors/affiliates via ModemPay is standard commercial payment, not regulated activity. | ✅ Confirmed |
 | ADR-012 | MoMo Reconcile is Tems Market's reconciliation backend. Every commission entry is logged as a MoMo Reconcile Job. Manager verification is the trigger for commission 'available' status. Tems Market pays MoMo Reconcile 1% of each commission from its own platform earnings — not deducted from user commissions. | ✅ Confirmed |
+| ADR-013 | Phone OTP auth via Supabase Auth + Edge Function wrappers. Supabase Auth handles OTP lifecycle; Edge Functions do phone normalization, session return, failsafe user creation. Client calls `setSession` after verify. [docs/decisions/ADR-013-phone-otp-auth.md](docs/decisions/ADR-013-phone-otp-auth.md) | ✅ Confirmed |

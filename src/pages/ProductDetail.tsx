@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, Package, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingCart, Package, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,8 +54,20 @@ const ProductDetail = () => {
   if (!product) {
     return (
       <Layout>
-        <div className="container py-16 text-center">
+        <div className="container max-w-md py-16 text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mx-auto">
+            <Package className="h-8 w-8 text-muted-foreground" />
+          </div>
           <h1 className="font-display text-2xl font-bold text-foreground">Product not found</h1>
+          <p className="text-sm text-muted-foreground">
+            This product may have been removed or the link is invalid.
+          </p>
+          <Button asChild variant="outline" className="gap-2">
+            <Link to="/shop">
+              <ArrowLeft className="h-4 w-4" />
+              Browse Products
+            </Link>
+          </Button>
         </div>
       </Layout>
     );

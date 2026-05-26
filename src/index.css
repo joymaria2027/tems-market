@@ -2,46 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Playfair+Display:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    --background: 30 25% 98%;
-    --foreground: 20 20% 10%;
+    /* ShopHub design system — applied from DESIGN.md */
+    --background: 340 100% 99%;
+    --foreground: 300 27% 8%;
 
     --card: 0 0% 100%;
-    --card-foreground: 20 20% 10%;
+    --card-foreground: 300 27% 8%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 20 20% 10%;
+    --popover-foreground: 300 27% 8%;
 
-    --primary: 25 95% 53%;
+    --primary: 334 78% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 30 20% 94%;
-    --secondary-foreground: 20 20% 20%;
+    --secondary: 331 78% 95%;
+    --secondary-foreground: 300 27% 15%;
 
-    --muted: 30 15% 93%;
-    --muted-foreground: 20 10% 45%;
+    --muted: 320 22% 95%;
+    --muted-foreground: 322 11% 38%;
 
-    --accent: 25 95% 53%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 40 100% 92%;
+    --accent-foreground: 30 100% 24%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 30 15% 88%;
-    --input: 30 15% 88%;
-    --ring: 25 95% 53%;
+    --border: 330 25% 92%;
+    --input: 330 25% 92%;
+    --ring: 334 78% 50%;
 
-    --radius: 0.75rem;
+    --radius: 0.875rem;
 
-    --font-display: 'Playfair Display', serif;
-    --font-body: 'DM Sans', sans-serif;
+    --font-family: 'Inter', sans-serif;
 
-    --shadow-card: 0 1px 3px 0 hsl(20 20% 10% / 0.04), 0 1px 2px -1px hsl(20 20% 10% / 0.04);
-    --shadow-card-hover: 0 10px 25px -5px hsl(25 95% 53% / 0.1), 0 4px 10px -4px hsl(20 20% 10% / 0.06);
-    --shadow-nav: 0 1px 3px 0 hsl(20 20% 10% / 0.06);
+    --shadow-card: 0 1px 3px 0 hsl(300 27% 8% / 0.04), 0 1px 2px -1px hsl(300 27% 8% / 0.04);
+    --shadow-card-hover: 0 10px 25px -5px hsl(334 78% 50% / 0.10), 0 4px 10px -4px hsl(300 27% 8% / 0.06);
+    --shadow-nav: 0 1px 3px 0 hsl(300 27% 8% / 0.06);
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -54,25 +54,25 @@
   }
 
   .dark {
-    --background: 20 15% 8%;
-    --foreground: 30 15% 93%;
-    --card: 20 15% 11%;
-    --card-foreground: 30 15% 93%;
-    --popover: 20 15% 11%;
-    --popover-foreground: 30 15% 93%;
-    --primary: 25 95% 53%;
+    --background: 300 27% 6%;
+    --foreground: 330 20% 92%;
+    --card: 300 27% 9%;
+    --card-foreground: 330 20% 92%;
+    --popover: 300 27% 9%;
+    --popover-foreground: 330 20% 92%;
+    --primary: 334 78% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 20 12% 18%;
-    --secondary-foreground: 30 15% 90%;
-    --muted: 20 12% 18%;
-    --muted-foreground: 30 10% 55%;
-    --accent: 25 95% 53%;
-    --accent-foreground: 0 0% 100%;
+    --secondary: 330 15% 16%;
+    --secondary-foreground: 330 20% 88%;
+    --muted: 330 12% 16%;
+    --muted-foreground: 325 8% 55%;
+    --accent: 334 20% 18%;
+    --accent-foreground: 40 100% 88%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 100%;
-    --border: 20 12% 20%;
-    --input: 20 12% 20%;
-    --ring: 25 95% 53%;
+    --border: 330 12% 18%;
+    --input: 330 12% 18%;
+    --ring: 334 78% 55%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -91,11 +91,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-body);
-  }
-
-  h1, h2, h3, h4 {
-    font-family: var(--font-display);
+    font-family: var(--font-family);
   }
 }
 

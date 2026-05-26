@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, Check, Link2, DollarSign, MousePointerClick, Loader2 } from "lucide-react";
+import { Copy, Check, Link2, DollarSign, MousePointerClick, Loader2, TrendingUp, Users, Gift } from "lucide-react";
 import { toast } from "sonner";
+import { formatGMD } from "@/lib/utils/currency";
 
 interface Affiliate {
   id: string;
@@ -111,13 +112,37 @@ const Affiliate = () => {
   if (!affiliate) {
     return (
       <Layout>
-        <div className="container py-16 text-center space-y-4 max-w-lg mx-auto">
-          <Link2 className="h-12 w-12 mx-auto text-primary" />
-          <h1 className="font-display text-2xl font-bold text-foreground">Affiliate Program</h1>
-          <p className="text-muted-foreground">
-            Earn a commission on every order made through your referral link. Share your link and start earning!
-          </p>
-          <Button onClick={handleCreate} disabled={creating}>
+        <div className="container py-16 text-center space-y-6 max-w-lg mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mx-auto">
+            <Link2 className="h-8 w-8 text-primary" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="font-display text-2xl font-bold text-foreground">Affiliate Program</h1>
+            <p className="text-muted-foreground text-sm">
+              Earn a commission on every order made through your referral link. Share your link and start earning!
+            </p>
+          </div>
+
+          {/* Benefits cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+            <div className="bg-card rounded-xl border border-border p-4 space-y-2">
+              <Gift className="h-5 w-5 text-primary" />
+              <p className="text-sm font-semibold text-foreground">Earn Commissions</p>
+              <p className="text-xs text-muted-foreground">Get paid for every sale from your link</p>
+            </div>
+            <div className="bg-card rounded-xl border border-border p-4 space-y-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              <p className="text-sm font-semibold text-foreground">Track Performance</p>
+              <p className="text-xs text-muted-foreground">Monitor clicks and earnings in real time</p>
+            </div>
+            <div className="bg-card rounded-xl border border-border p-4 space-y-2">
+              <Users className="h-5 w-5 text-primary" />
+              <p className="text-sm font-semibold text-foreground">No Inventory</p>
+              <p className="text-xs text-muted-foreground">Promote products without holding stock</p>
+            </div>
+          </div>
+
+          <Button onClick={handleCreate} disabled={creating} size="lg" className="gap-2">
             {creating ? "Creating…" : "Become an Affiliate"}
           </Button>
         </div>
@@ -139,7 +164,7 @@ const Affiliate = () => {
           </div>
           <div className="bg-card rounded-xl border border-border p-5 text-center">
             <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
-            <p className="text-2xl font-bold text-foreground">D{Number(affiliate.total_earned).toFixed(2)}</p>
+            <p className="text-2xl font-bold text-foreground">{formatGMD(affiliate.total_earned)}</p>
             <p className="text-sm text-muted-foreground">Total Earned</p>
           </div>
           <div className="bg-card rounded-xl border border-border p-5 text-center">
@@ -178,7 +203,7 @@ const Affiliate = () => {
                     <p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-foreground">D{Number(r.commission_amount).toFixed(2)}</p>
+                    <p className="font-semibold text-foreground">{formatGMD(r.commission_amount)}</p>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                       r.status === "paid" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
                     }`}>

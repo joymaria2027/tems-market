@@ -25,6 +25,7 @@ import AdminGiftCards from "./pages/admin/AdminGiftCards";
 import AdminCoupons from "./pages/admin/AdminCoupons";
 import AdminPlaceholder from "./pages/admin/AdminPlaceholder";
 import AdminOrders from "./pages/admin/AdminOrders";
+import AdminUsers from "./pages/admin/AdminUsers";
 import AdminAffiliates from "./pages/admin/AdminAffiliates";
 import AdminVendors from "./pages/admin/AdminVendors";
 import AdminGuard from "./components/AdminGuard";
@@ -65,7 +66,7 @@ const App = () => (
             <Route path="/admin/products" element={<AdminGuard><AdminProducts /></AdminGuard>} />
             <Route path="/admin/gift-cards" element={<AdminGuard><AdminGiftCards /></AdminGuard>} />
             <Route path="/admin/coupons" element={<AdminGuard><AdminCoupons /></AdminGuard>} />
-            <Route path="/admin/users" element={<AdminGuard><AdminPlaceholder /></AdminGuard>} />
+            <Route path="/admin/users" element={<AdminGuard><AdminUsers /></AdminGuard>} />
             <Route path="/admin/orders" element={<AdminGuard><AdminOrders /></AdminGuard>} />
             <Route path="/admin/vendors" element={<AdminGuard><AdminVendors /></AdminGuard>} />
             <Route path="/admin/affiliates" element={<AdminGuard><AdminAffiliates /></AdminGuard>} />

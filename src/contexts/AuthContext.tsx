@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -22,18 +28,21 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (
-    email: string,
-    password: string,
-    fullName: string,
+  // Phone OTP methods
+  requestOTP: (phone: string) => Promise<{ error: Error | null }>;
+  verifyOTP: (
     phone: string,
-    role: "customer" | "vendor" | "affiliate",
-    dateOfBirth: string
+    code: string,
+  ) => Promise<{ error: Error | null; session?: Session }>;
+  // Profile update
+  updateProfile: (
+    updates: Partial<Profile>,
   ) => Promise<{ error: Error | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signInWithGoogle: () => Promise<void>;
+  // Role update (only for customer and affiliate)
+  updateRole: (role: "customer" | "affiliate") => Promise<void>;
+  // Sign out
   signOut: () => Promise<void>;
-  updateRole: (role: "customer" | "vendor" | "affiliate") => Promise<void>;
+  // Refresh profile
   refreshProfile: () => Promise<void>;
 }
 
@@ -72,19 +81,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (user) await fetchProfile(user.id);
   };
 
+  const updateProfile = async (updates: Partial<Profile>) => {
+    if (!user) return { error: new Error("No user") };
+    const { error } = await supabase
+      .from("users")
+      .update(updates)
+      .eq("id", user.id);
+
+    return { error: error as Error | null };
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setProfile(null);
+  };
+
+  const updateRole = async (role: "customer" | "affiliate") => {
+    if (!user) return;
+    const { error } = await supabase.rpc("update_own_role", { new_role: role });
+    if (error) {
+      console.error("Error updating role:", error);
+      throw error;
+    }
+    await fetchProfile(user.id);
+  };
+
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setTimeout(() => fetchProfile(session.user.id), 0);
-        } else {
-          setProfile(null);
-        }
-        setLoading(false);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        setTimeout(() => fetchProfile(session.user.id), 0);
+      } else {
+        setProfile(null);
       }
-    );
+      setLoading(false);
+    });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -98,56 +132,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (
-    email: string,
-    password: string,
-    fullName: string,
-    phone: string,
-    role: "customer" | "vendor" | "affiliate",
-    dateOfBirth: string
-  ) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          phone,
-          role,
-          date_of_birth: dateOfBirth,
-          age_verified: true,
-        },
-        emailRedirectTo: window.location.origin,
-      },
+  const requestOTP = async (phone: string) => {
+    // Call the request-otp Edge Function
+    const { error } = await supabase.functions.invoke("request-otp", {
+      body: { phone },
     });
     return { error: error as Error | null };
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
-  };
-
-  const signInWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
+  const verifyOTP = async (phone: string, code: string) => {
+    // Call the verify-otp Edge Function
+    const { data, error } = await supabase.functions.invoke("verify-otp", {
+      body: { phone, code },
     });
-  };
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setProfile(null);
-  };
-
-  const updateRole = async (role: "customer" | "vendor" | "affiliate") => {
-    if (!user) return;
-    const { error } = await supabase.rpc("update_own_role", { new_role: role });
     if (error) {
-      console.error("Error updating role:", error);
-      throw error;
+      return { error: error as Error | null };
     }
-    await fetchProfile(user.id);
+
+    if (!data?.session) {
+      return { error: new Error("No session returned from OTP verification") };
+    }
+
+    // Set the session on the client so onAuthStateChange fires and fetches profile
+    const { error: setSessionError } = await supabase.auth.setSession({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    });
+
+    if (setSessionError) {
+      return { error: setSessionError as Error };
+    }
+
+    return { error: null, session: data.session as Session };
   };
 
   return (
@@ -157,11 +173,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         session,
         profile,
         loading,
-        signUp,
-        signIn,
-        signInWithGoogle,
-        signOut,
+        requestOTP,
+        verifyOTP,
+        updateProfile,
         updateRole,
+        signOut,
         refreshProfile,
       }}
     >

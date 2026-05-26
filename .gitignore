@@ -23,3 +23,18 @@ dist-ssr
 *.sln
 *.sw?
 node_modules/
+
+# Secrets
+keys
+keys~
+.env
+
+# Generated / temp
+supabase/.temp/
+supabase/.branches/
+types/
+*.bak
+
+# OS
+.DS_Store
+

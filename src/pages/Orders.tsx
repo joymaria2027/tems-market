@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { ShoppingBag, Package } from "lucide-react";
+import { formatGMD } from "@/lib/utils/currency";
 
 const statusColor: Record<string, string> = {
   placed: "bg-yellow-100 text-yellow-700",
@@ -122,14 +123,14 @@ const Orders = () => {
                       </div>
                       <span className="flex-1 text-foreground truncate">{item.products?.title || "Product"}</span>
                       <span className="text-muted-foreground">x{item.quantity}</span>
-                      <span className="font-medium text-foreground">GMD {Number(item.price_at_purchase * item.quantity).toFixed(2)}</span>
+                      <span className="font-medium text-foreground">{formatGMD(item.price_at_purchase * item.quantity)}</span>
                     </div>
                   ))}
                 </div>
                 <Separator />
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total</span>
-                  <span className="font-semibold text-foreground">GMD {Number(order.total).toFixed(2)}</span>
+                  <span className="font-semibold text-foreground">{formatGMD(order.total)}</span>
                 </div>
               </div>
             ))}

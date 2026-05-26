@@ -7,462 +7,1236 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.4"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
-      affiliate_referrals: {
+      affiliate_links: {
         Row: {
           affiliate_id: string
-          commission_amount: number
+          clicks: number
+          conversions: number
           created_at: string
           id: string
-          order_id: string
-          status: string
+          listing_id: string
+          short_code: string
         }
         Insert: {
           affiliate_id: string
-          commission_amount?: number
+          clicks?: number
+          conversions?: number
           created_at?: string
           id?: string
-          order_id: string
-          status?: string
+          listing_id: string
+          short_code: string
         }
         Update: {
           affiliate_id?: string
-          commission_amount?: number
+          clicks?: number
+          conversions?: number
           created_at?: string
           id?: string
-          order_id?: string
-          status?: string
+          listing_id?: string
+          short_code?: string
         }
         Relationships: [
           {
-            foreignKeyName: "affiliate_referrals_affiliate_id_fkey"
+            foreignKeyName: "affiliate_links_affiliate_id_fkey"
             columns: ["affiliate_id"]
             isOneToOne: false
-            referencedRelation: "affiliates"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "affiliate_referrals_order_id_fkey"
+            foreignKeyName: "affiliate_links_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commission_ledger: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          modempay_payout_id: string | null
+          momo_reconcile_fee: number | null
+          momo_reconcile_job_id: string | null
+          momo_reconcile_status: Database["public"]["Enums"]["momo_reconcile_status"]
+          momo_reconcile_trust_tier: number | null
+          momo_reconcile_verified_at: string | null
+          order_id: string
+          paid_at: string | null
+          recipient_id: string
+          recipient_role: Database["public"]["Enums"]["commission_recipient"]
+          settlement_batch_id: string | null
+          settlement_date: string | null
+          status: Database["public"]["Enums"]["commission_status"]
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          modempay_payout_id?: string | null
+          momo_reconcile_fee?: number | null
+          momo_reconcile_job_id?: string | null
+          momo_reconcile_status?: Database["public"]["Enums"]["momo_reconcile_status"]
+          momo_reconcile_trust_tier?: number | null
+          momo_reconcile_verified_at?: string | null
+          order_id: string
+          paid_at?: string | null
+          recipient_id: string
+          recipient_role: Database["public"]["Enums"]["commission_recipient"]
+          settlement_batch_id?: string | null
+          settlement_date?: string | null
+          status?: Database["public"]["Enums"]["commission_status"]
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          modempay_payout_id?: string | null
+          momo_reconcile_fee?: number | null
+          momo_reconcile_job_id?: string | null
+          momo_reconcile_status?: Database["public"]["Enums"]["momo_reconcile_status"]
+          momo_reconcile_trust_tier?: number | null
+          momo_reconcile_verified_at?: string | null
+          order_id?: string
+          paid_at?: string | null
+          recipient_id?: string
+          recipient_role?: Database["public"]["Enums"]["commission_recipient"]
+          settlement_batch_id?: string | null
+          settlement_date?: string | null
+          status?: Database["public"]["Enums"]["commission_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_ledger_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      affiliates: {
-        Row: {
-          code: string
-          commission_rate: number
-          created_at: string
-          id: string
-          total_clicks: number
-          total_earned: number
-          user_id: string
-        }
-        Insert: {
-          code: string
-          commission_rate?: number
-          created_at?: string
-          id?: string
-          total_clicks?: number
-          total_earned?: number
-          user_id: string
-        }
-        Update: {
-          code?: string
-          commission_rate?: number
-          created_at?: string
-          id?: string
-          total_clicks?: number
-          total_earned?: number
-          user_id?: string
-        }
-        Relationships: [
           {
-            foreignKeyName: "affiliates_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
+            foreignKeyName: "commission_ledger_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
       }
-      categories: {
+      coupon_uses: {
         Row: {
-          created_at: string
+          coupon_id: string
+          discount_applied: number
           id: string
-          name: string
-          slug: string
+          order_id: string
+          used_at: string
+          user_id: string
         }
         Insert: {
-          created_at?: string
+          coupon_id: string
+          discount_applied: number
           id?: string
-          name: string
-          slug: string
+          order_id: string
+          used_at?: string
+          user_id: string
         }
         Update: {
-          created_at?: string
+          coupon_id?: string
+          discount_applied?: number
           id?: string
-          name?: string
-          slug?: string
+          order_id?: string
+          used_at?: string
+          user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "coupon_uses_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_uses_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_uses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       coupons: {
         Row: {
           code: string
           created_at: string
-          discount_type: Database["public"]["Enums"]["discount_type"]
+          created_by: string
+          discount_type: Database["public"]["Enums"]["coupon_discount_type"]
           discount_value: number
-          expiry_date: string | null
+          expires_at: string
           id: string
-          times_used: number
-          usage_limit: number | null
+          max_uses: number | null
+          max_uses_per_user: number | null
+          minimum_order_gmd: number | null
+          status: Database["public"]["Enums"]["coupon_status"]
+          updated_at: string
+          uses_so_far: number
+          valid_from: string
         }
         Insert: {
           code: string
           created_at?: string
-          discount_type?: Database["public"]["Enums"]["discount_type"]
+          created_by: string
+          discount_type: Database["public"]["Enums"]["coupon_discount_type"]
           discount_value: number
-          expiry_date?: string | null
+          expires_at: string
           id?: string
-          times_used?: number
-          usage_limit?: number | null
+          max_uses?: number | null
+          max_uses_per_user?: number | null
+          minimum_order_gmd?: number | null
+          status?: Database["public"]["Enums"]["coupon_status"]
+          updated_at?: string
+          uses_so_far?: number
+          valid_from: string
         }
         Update: {
           code?: string
           created_at?: string
-          discount_type?: Database["public"]["Enums"]["discount_type"]
+          created_by?: string
+          discount_type?: Database["public"]["Enums"]["coupon_discount_type"]
           discount_value?: number
-          expiry_date?: string | null
+          expires_at?: string
           id?: string
-          times_used?: number
-          usage_limit?: number | null
-        }
-        Relationships: []
-      }
-      gift_cards: {
-        Row: {
-          code: string
-          created_at: string
-          id: string
-          issued_to_email: string | null
-          remaining_balance: number
-          used_at: string | null
-          used_by: string | null
-          value: number
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          id?: string
-          issued_to_email?: string | null
-          remaining_balance: number
-          used_at?: string | null
-          used_by?: string | null
-          value: number
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          id?: string
-          issued_to_email?: string | null
-          remaining_balance?: number
-          used_at?: string | null
-          used_by?: string | null
-          value?: number
+          max_uses?: number | null
+          max_uses_per_user?: number | null
+          minimum_order_gmd?: number | null
+          status?: Database["public"]["Enums"]["coupon_status"]
+          updated_at?: string
+          uses_so_far?: number
+          valid_from?: string
         }
         Relationships: [
           {
-            foreignKeyName: "gift_cards_used_by_fkey"
-            columns: ["used_by"]
+            foreignKeyName: "coupons_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
       }
-      order_items: {
+      credit_transactions: {
         Row: {
+          amount_gmd: number
+          balance_after: number
+          counterparty_id: string | null
           created_at: string
           id: string
-          order_id: string
-          price_at_purchase: number
-          product_id: string
-          quantity: number
+          modempay_payment_id: string | null
+          note: string | null
+          order_id: string | null
+          type: Database["public"]["Enums"]["credit_transaction_type"]
+          user_id: string
         }
         Insert: {
+          amount_gmd: number
+          balance_after: number
+          counterparty_id?: string | null
           created_at?: string
           id?: string
-          order_id: string
-          price_at_purchase: number
-          product_id: string
-          quantity?: number
+          modempay_payment_id?: string | null
+          note?: string | null
+          order_id?: string | null
+          type: Database["public"]["Enums"]["credit_transaction_type"]
+          user_id: string
         }
         Update: {
+          amount_gmd?: number
+          balance_after?: number
+          counterparty_id?: string | null
           created_at?: string
           id?: string
-          order_id?: string
-          price_at_purchase?: number
-          product_id?: string
-          quantity?: number
+          modempay_payment_id?: string | null
+          note?: string | null
+          order_id?: string | null
+          type?: Database["public"]["Enums"]["credit_transaction_type"]
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "order_items_order_id_fkey"
+            foreignKeyName: "credit_transactions_counterparty_id_fkey"
+            columns: ["counterparty_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_transactions_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "order_items_product_id_fkey"
-            columns: ["product_id"]
+            foreignKeyName: "credit_transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_wallets: {
+        Row: {
+          balance_gmd: number
+          created_at: string
+          id: string
+          total_spent: number
+          total_topped_up: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance_gmd?: number
+          created_at?: string
+          id?: string
+          total_spent?: number
+          total_topped_up?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance_gmd?: number
+          created_at?: string
+          id?: string
+          total_spent?: number
+          total_topped_up?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_wallets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_requests: {
+        Row: {
+          budget_gmd: number | null
+          category: string | null
+          created_at: string
+          customer_id: string
+          description: string
+          fulfilled_by: string | null
+          id: string
+          notes: string | null
+          status: Database["public"]["Enums"]["request_status"]
+          updated_at: string
+        }
+        Insert: {
+          budget_gmd?: number | null
+          category?: string | null
+          created_at?: string
+          customer_id: string
+          description: string
+          fulfilled_by?: string | null
+          id?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["request_status"]
+          updated_at?: string
+        }
+        Update: {
+          budget_gmd?: number | null
+          category?: string | null
+          created_at?: string
+          customer_id?: string
+          description?: string
+          fulfilled_by?: string | null
+          id?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_requests_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_requests_fulfilled_by_fkey"
+            columns: ["fulfilled_by"]
+            isOneToOne: false
+            referencedRelation: "price_stack_view"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "customer_requests_fulfilled_by_fkey"
+            columns: ["fulfilled_by"]
             isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
       }
-      orders: {
+      featured_listings: {
+        Row: {
+          amount_paid: number
+          created_at: string
+          ends_at: string | null
+          id: string
+          listing_id: string
+          modempay_payment_id: string | null
+          plan: Database["public"]["Enums"]["featured_plan"]
+          position: number | null
+          starts_at: string | null
+          status: Database["public"]["Enums"]["featured_status"]
+          vendor_id: string
+        }
+        Insert: {
+          amount_paid: number
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          listing_id: string
+          modempay_payment_id?: string | null
+          plan: Database["public"]["Enums"]["featured_plan"]
+          position?: number | null
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["featured_status"]
+          vendor_id: string
+        }
+        Update: {
+          amount_paid?: number
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          listing_id?: string
+          modempay_payment_id?: string | null
+          plan?: Database["public"]["Enums"]["featured_plan"]
+          position?: number | null
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["featured_status"]
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "featured_listings_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "featured_listings_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gift_card_redemptions: {
+        Row: {
+          amount_used: number
+          gift_card_id: string
+          id: string
+          order_id: string
+          redeemed_at: string
+        }
+        Insert: {
+          amount_used: number
+          gift_card_id: string
+          id?: string
+          order_id: string
+          redeemed_at?: string
+        }
+        Update: {
+          amount_used?: number
+          gift_card_id?: string
+          id?: string
+          order_id?: string
+          redeemed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_card_redemptions_gift_card_id_fkey"
+            columns: ["gift_card_id"]
+            isOneToOne: false
+            referencedRelation: "gift_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_card_redemptions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gift_cards: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          id: string
+          modempay_payment_id: string | null
+          personal_message: string | null
+          purchased_by: string | null
+          recipient_email: string | null
+          recipient_name: string | null
+          remaining_balance: number
+          status: Database["public"]["Enums"]["gift_card_status"]
+          value_gmd: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          modempay_payment_id?: string | null
+          personal_message?: string | null
+          purchased_by?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          remaining_balance: number
+          status?: Database["public"]["Enums"]["gift_card_status"]
+          value_gmd: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          modempay_payment_id?: string | null
+          personal_message?: string | null
+          purchased_by?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          remaining_balance?: number
+          status?: Database["public"]["Enums"]["gift_card_status"]
+          value_gmd?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_cards_purchased_by_fkey"
+            columns: ["purchased_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invite_tokens: {
         Row: {
           created_at: string
-          discount_applied: number | null
+          expires_at: string
           id: string
-          shopper_id: string
-          status: Database["public"]["Enums"]["order_status"]
-          stripe_payment_id: string | null
-          total: number
-          updated_at: string
+          role: Database["public"]["Enums"]["user_role"]
+          token: string
+          used: boolean
+          user_id: string
         }
         Insert: {
           created_at?: string
-          discount_applied?: number | null
+          expires_at?: string
           id?: string
-          shopper_id: string
-          status?: Database["public"]["Enums"]["order_status"]
-          stripe_payment_id?: string | null
-          total?: number
-          updated_at?: string
+          role: Database["public"]["Enums"]["user_role"]
+          token?: string
+          used?: boolean
+          user_id: string
         }
         Update: {
           created_at?: string
-          discount_applied?: number | null
+          expires_at?: string
           id?: string
-          shopper_id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          token?: string
+          used?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invite_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications_log: {
+        Row: {
+          channel: Database["public"]["Enums"]["notification_channel"]
+          id: string
+          message: string
+          sent_at: string
+          twilio_sid: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["notification_channel"]
+          id?: string
+          message: string
+          sent_at?: string
+          twilio_sid?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["notification_channel"]
+          id?: string
+          message?: string
+          sent_at?: string
+          twilio_sid?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          affiliate_link_id: string | null
+          coupon_discount: number | null
+          coupon_id: string | null
+          created_at: string
+          customer_id: string
+          delivery_address: string
+          discounted_total: number
+          gift_card_amount: number | null
+          gift_card_id: string | null
+          id: string
+          listing_id: string
+          modempay_payment_id: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          quantity: number
+          status: Database["public"]["Enums"]["order_status"]
+          total_amount: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          affiliate_link_id?: string | null
+          coupon_discount?: number | null
+          coupon_id?: string | null
+          created_at?: string
+          customer_id: string
+          delivery_address: string
+          discounted_total: number
+          gift_card_amount?: number | null
+          gift_card_id?: string | null
+          id?: string
+          listing_id: string
+          modempay_payment_id?: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          quantity?: number
           status?: Database["public"]["Enums"]["order_status"]
-          stripe_payment_id?: string | null
-          total?: number
+          total_amount: number
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          affiliate_link_id?: string | null
+          coupon_discount?: number | null
+          coupon_id?: string | null
+          created_at?: string
+          customer_id?: string
+          delivery_address?: string
+          discounted_total?: number
+          gift_card_amount?: number | null
+          gift_card_id?: string | null
+          id?: string
+          listing_id?: string
+          modempay_payment_id?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          quantity?: number
+          status?: Database["public"]["Enums"]["order_status"]
+          total_amount?: number
+          unit_price?: number
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "orders_shopper_id_fkey"
-            columns: ["shopper_id"]
+            foreignKeyName: "orders_affiliate_link_id_fkey"
+            columns: ["affiliate_link_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "affiliate_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_gift_card_id_fkey"
+            columns: ["gift_card_id"]
+            isOneToOne: false
+            referencedRelation: "gift_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      price_layers: {
+        Row: {
+          admin_id: string
+          admin_margin: number | null
+          admin_price: number
+          created_at: string
+          id: string
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          admin_id: string
+          admin_margin?: number | null
+          admin_price: number
+          created_at?: string
+          id?: string
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string
+          admin_margin?: number | null
+          admin_price?: number
+          created_at?: string
+          id?: string
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_layers_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_layers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "price_stack_view"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "price_layers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
       }
       products: {
         Row: {
-          category_id: string | null
+          base_price: number
+          category: string
           created_at: string
+          created_by: string
           description: string | null
           id: string
           images: string[]
-          price: number
-          rejection_note: string | null
-          slug: string
-          sponsored: boolean
+          inventory_type: Database["public"]["Enums"]["inventory_type"]
           status: Database["public"]["Enums"]["product_status"]
-          stock: number
+          submitted_by_vendor: string | null
           title: string
           updated_at: string
-          vendor_id: string
         }
         Insert: {
-          category_id?: string | null
+          base_price: number
+          category: string
           created_at?: string
+          created_by: string
           description?: string | null
           id?: string
           images?: string[]
-          price?: number
-          rejection_note?: string | null
-          slug: string
-          sponsored?: boolean
+          inventory_type?: Database["public"]["Enums"]["inventory_type"]
           status?: Database["public"]["Enums"]["product_status"]
-          stock?: number
+          submitted_by_vendor?: string | null
           title: string
           updated_at?: string
-          vendor_id: string
         }
         Update: {
-          category_id?: string | null
+          base_price?: number
+          category?: string
           created_at?: string
+          created_by?: string
           description?: string | null
           id?: string
           images?: string[]
-          price?: number
-          rejection_note?: string | null
-          slug?: string
-          sponsored?: boolean
+          inventory_type?: Database["public"]["Enums"]["inventory_type"]
           status?: Database["public"]["Enums"]["product_status"]
-          stock?: number
+          submitted_by_vendor?: string | null
           title?: string
           updated_at?: string
-          vendor_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "products_category_id_fkey"
-            columns: ["category_id"]
+            foreignKeyName: "products_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "categories"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "products_vendor_id_fkey"
-            columns: ["vendor_id"]
+            foreignKeyName: "products_submitted_by_vendor_fkey"
+            columns: ["submitted_by_vendor"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settlement_batches: {
+        Row: {
+          created_at: string
+          entry_count: number
+          id: string
+          modempay_payout_id: string | null
+          payout_method: string
+          processed_at: string | null
+          recipient_id: string
+          settlement_date: string
+          status: string
+          total_amount: number
+        }
+        Insert: {
+          created_at?: string
+          entry_count: number
+          id?: string
+          modempay_payout_id?: string | null
+          payout_method: string
+          processed_at?: string | null
+          recipient_id: string
+          settlement_date: string
+          status?: string
+          total_amount: number
+        }
+        Update: {
+          created_at?: string
+          entry_count?: number
+          id?: string
+          modempay_payout_id?: string | null
+          payout_method?: string
+          processed_at?: string | null
+          recipient_id?: string
+          settlement_date?: string
+          status?: string
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlement_batches_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
       }
       users: {
         Row: {
-          id: string
-          phone: string
-          full_name: string
-          email: string | null
-          date_of_birth: string | null
           age_verified: boolean
-          role: "superadmin" | "admin" | "vendor" | "affiliate" | "customer"
-          status: "active" | "pending" | "rejected" | "suspended"
-          commission_payout_preference: "mobile_money" | "credits"
+          commission_payout_preference: Database["public"]["Enums"]["commission_payout_preference"]
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          full_name: string
+          id: string
           invited_by: string | null
-          created_at: string
+          phone: string
+          role: Database["public"]["Enums"]["user_role"]
+          status: Database["public"]["Enums"]["user_status"]
           updated_at: string
         }
         Insert: {
-          id: string
-          phone?: string
-          full_name?: string
-          email?: string | null
-          date_of_birth?: string | null
           age_verified?: boolean
-          role?: "superadmin" | "admin" | "vendor" | "affiliate" | "customer"
-          status?: "active" | "pending" | "rejected" | "suspended"
-          commission_payout_preference?: "mobile_money" | "credits"
-          invited_by?: string | null
+          commission_payout_preference?: Database["public"]["Enums"]["commission_payout_preference"]
           created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          full_name: string
+          id: string
+          invited_by?: string | null
+          phone: string
+          role: Database["public"]["Enums"]["user_role"]
+          status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
         }
         Update: {
-          id?: string
-          phone?: string
-          full_name?: string
-          email?: string | null
-          date_of_birth?: string | null
           age_verified?: boolean
-          role?: "superadmin" | "admin" | "vendor" | "affiliate" | "customer"
-          status?: "active" | "pending" | "rejected" | "suspended"
-          commission_payout_preference?: "mobile_money" | "credits"
-          invited_by?: string | null
+          commission_payout_preference?: Database["public"]["Enums"]["commission_payout_preference"]
           created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          invited_by?: string | null
+          phone?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "users_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      profiles: {
+      vendor_listings: {
         Row: {
-          avatar_url: string | null
           created_at: string
-          fulfillment_rate: number
           id: string
-          name: string | null
-          role: Database["public"]["Enums"]["app_role"]
-          store_description: string | null
-          store_name: string | null
+          is_active: boolean
+          product_id: string
           updated_at: string
-          vendor_status: string
-          verification_documents: string[]
-          verification_note: string | null
+          vendor_id: string
+          vendor_margin: number | null
+          vendor_price: number
         }
         Insert: {
-          avatar_url?: string | null
           created_at?: string
-          fulfillment_rate?: number
-          id: string
-          name?: string | null
-          role?: Database["public"]["Enums"]["app_role"]
-          store_description?: string | null
-          store_name?: string | null
+          id?: string
+          is_active?: boolean
+          product_id: string
           updated_at?: string
-          vendor_status?: string
-          verification_documents?: string[]
-          verification_note?: string | null
+          vendor_id: string
+          vendor_margin?: number | null
+          vendor_price: number
         }
         Update: {
-          avatar_url?: string | null
           created_at?: string
-          fulfillment_rate?: number
           id?: string
-          name?: string | null
-          role?: Database["public"]["Enums"]["app_role"]
-          store_description?: string | null
-          store_name?: string | null
+          is_active?: boolean
+          product_id?: string
           updated_at?: string
-          vendor_status?: string
-          verification_documents?: string[]
-          verification_note?: string | null
+          vendor_id?: string
+          vendor_margin?: number | null
+          vendor_price?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vendor_listings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "price_stack_view"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "vendor_listings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_listings_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_profiles: {
+        Row: {
+          account_number: string | null
+          approved_at: string | null
+          approved_by: string | null
+          business_name: string
+          category: string
+          created_at: string
+          id: string
+          id_document_url: string | null
+          id_ocr_text: string | null
+          id_structured: Json | null
+          modempay_subaccount_id: string | null
+          settlement_code: Database["public"]["Enums"]["settlement_code"] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_number?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          business_name: string
+          category: string
+          created_at?: string
+          id?: string
+          id_document_url?: string | null
+          id_ocr_text?: string | null
+          id_structured?: Json | null
+          modempay_subaccount_id?: string | null
+          settlement_code?:
+            | Database["public"]["Enums"]["settlement_code"]
+            | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_number?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          business_name?: string
+          category?: string
+          created_at?: string
+          id?: string
+          id_document_url?: string | null
+          id_ocr_text?: string | null
+          id_structured?: Json | null
+          modempay_subaccount_id?: string | null
+          settlement_code?:
+            | Database["public"]["Enums"]["settlement_code"]
+            | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_profiles_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
-      [_ in never]: never
+      active_sponsored_view: {
+        Row: {
+          category: string | null
+          ends_at: string | null
+          featured_id: string | null
+          images: string[] | null
+          listing_id: string | null
+          position: number | null
+          title: string | null
+          vendor_id: string | null
+          vendor_price: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "featured_listings_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_listings_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_stack_view: {
+        Row: {
+          admin_id: string | null
+          admin_margin: number | null
+          admin_name: string | null
+          admin_price: number | null
+          base_price: number | null
+          category: string | null
+          inventory_type: Database["public"]["Enums"]["inventory_type"] | null
+          product_id: string | null
+          status: Database["public"]["Enums"]["product_status"] | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_layers_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_balances: {
+        Row: {
+          available_balance: number | null
+          pending_balance: number | null
+          recipient_id: string | null
+          recipient_role:
+            | Database["public"]["Enums"]["commission_recipient"]
+            | null
+          total_paid_out: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_ledger_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
+      get_user_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["user_role"]
       }
-      increment_affiliate_clicks: {
-        Args: { affiliate_code: string }
-        Returns: undefined
-      }
+      is_admin_or_above: { Args: never; Returns: boolean }
+      is_superadmin: { Args: never; Returns: boolean }
       update_own_role: {
-        Args: {
-          new_role: "superadmin" | "admin" | "vendor" | "affiliate" | "customer"
-        }
+        Args: { new_role: Database["public"]["Enums"]["user_role"] }
         Returns: undefined
       }
     }
     Enums: {
-      app_role: "shopper" | "vendor" | "admin"
-      discount_type: "percentage" | "fixed"
-      order_status:
+      commission_payout_preference: "mobile_money" | "credits"
+      commission_recipient: "vendor" | "affiliate" | "admin" | "platform"
+      commission_status: "pending" | "available" | "paid" | "failed"
+      coupon_discount_type: "percentage" | "fixed_gmd"
+      coupon_status: "active" | "paused" | "expired"
+      credit_transaction_type:
+        | "top_up"
+        | "purchase"
+        | "refund"
+        | "bonus"
+        | "commission_credit"
+        | "gift_card_purchase"
+        | "gift_card_redeem"
+      featured_plan: "7_days" | "30_days"
+      featured_status: "pending_payment" | "active" | "expired"
+      gift_card_status: "active" | "partially_used" | "fully_used" | "expired"
+      inventory_type: "tems_owned" | "vendor_submitted"
+      momo_reconcile_status:
+        | "syncing"
         | "pending"
-        | "paid"
-        | "shipped"
+        | "verified"
+        | "disputed"
+        | "timed_out"
+      notification_channel: "sms" | "whatsapp"
+      order_status:
+        | "placed"
+        | "confirmed"
+        | "preparing"
+        | "ready"
         | "delivered"
         | "cancelled"
-        | "refunded"
-        | "awaiting_payment"
-      product_status: "draft" | "pending" | "approved" | "rejected"
+      payment_method:
+        | "qmoney"
+        | "afrimoney"
+        | "wave"
+        | "cash"
+        | "credits"
+        | "gift_card"
+        | "mixed"
+      payment_status: "pending" | "pending_cod" | "paid" | "failed" | "refunded"
+      product_status: "draft" | "pending_review" | "active" | "inactive"
+      request_status: "open" | "sourcing" | "fulfilled" | "declined"
+      settlement_code: "wave" | "afrimoney"
+      user_role: "superadmin" | "admin" | "vendor" | "affiliate" | "customer"
+      user_status: "active" | "pending" | "rejected" | "suspended"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -588,20 +1362,61 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
-      app_role: ["shopper", "vendor", "admin"],
-      discount_type: ["percentage", "fixed"],
-      order_status: [
+      commission_payout_preference: ["mobile_money", "credits"],
+      commission_recipient: ["vendor", "affiliate", "admin", "platform"],
+      commission_status: ["pending", "available", "paid", "failed"],
+      coupon_discount_type: ["percentage", "fixed_gmd"],
+      coupon_status: ["active", "paused", "expired"],
+      credit_transaction_type: [
+        "top_up",
+        "purchase",
+        "refund",
+        "bonus",
+        "commission_credit",
+        "gift_card_purchase",
+        "gift_card_redeem",
+      ],
+      featured_plan: ["7_days", "30_days"],
+      featured_status: ["pending_payment", "active", "expired"],
+      gift_card_status: ["active", "partially_used", "fully_used", "expired"],
+      inventory_type: ["tems_owned", "vendor_submitted"],
+      momo_reconcile_status: [
+        "syncing",
         "pending",
-        "paid",
-        "shipped",
+        "verified",
+        "disputed",
+        "timed_out",
+      ],
+      notification_channel: ["sms", "whatsapp"],
+      order_status: [
+        "placed",
+        "confirmed",
+        "preparing",
+        "ready",
         "delivered",
         "cancelled",
-        "refunded",
-        "awaiting_payment",
       ],
-      product_status: ["draft", "pending", "approved", "rejected"],
+      payment_method: [
+        "qmoney",
+        "afrimoney",
+        "wave",
+        "cash",
+        "credits",
+        "gift_card",
+        "mixed",
+      ],
+      payment_status: ["pending", "pending_cod", "paid", "failed", "refunded"],
+      product_status: ["draft", "pending_review", "active", "inactive"],
+      request_status: ["open", "sourcing", "fulfilled", "declined"],
+      settlement_code: ["wave", "afrimoney"],
+      user_role: ["superadmin", "admin", "vendor", "affiliate", "customer"],
+      user_status: ["active", "pending", "rejected", "suspended"],
     },
   },
 } as const
+
