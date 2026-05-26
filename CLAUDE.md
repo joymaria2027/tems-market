@@ -37,15 +37,14 @@ ADRs: `docs/decisions/`. Inspiration screenshots: `docs/inspiration/`.
 > Add to this list whenever something is incomplete, stubbed, or deferred. Never delete — mark resolved.
 
 - [ ] **LEGAL FLAG (low risk):** Credits are non-withdrawable, non-transferable store credit — not e-money. Platform pays vendors/affiliates via ModemPay as commercial accounts payable — not regulated. Brief legal confirmation recommended pre-launch but risk is minimal.
-- [ ] Open: Can vendors/affiliates receive commissions as credits? (F22.12 is Should Have — decide before Phase 3)
+- [ ] Vendor invite link: token expiry is 7 days. If vendor doesn't use it, admin must generate a new one. No automated resend — admin does it manually.
 - [ ] Open: Gift card redemption adds to credit wallet (F22.11) — confirm this is the intended flow
 - [ ] ModemPay supports one sub_account per Payment Intent. Affiliate + admin commission via separate Payouts API calls. Collapse to single intent when ModemPay ships multi sub-account. **ADR-006.**
-- [ ] Twilio WhatsApp Business API approval not started. SMS fallback on all WhatsApp events until approved. Apply on Day 1.
+- [ ] Meta WhatsApp Cloud API: requires WhatsApp Business Account approval and phone number verification. Apply on Day 1. Africa's Talking SMS is the fallback until WhatsApp is approved.
 - [ ] Open: Can one account be both Customer and Affiliate? Currently separate roles enforced.
 - [ ] Open: Gift card expiry period not confirmed (placeholder: 12 months).
 - [ ] Open: Vendor monthly subscription price via RevenueCat not confirmed.
 - [ ] Open: Vendor affiliate opt-in toggle not yet added to vendor_listings table — needed before Phase 3.
-- [ ] **GITHUB TOKEN EXPOSED:** The `GITHUB_TOKEN=ghp_...` in `.env` was exposed in plaintext before `.env` was gitignored. Rotate/revoke at github.com/settings/tokens.
 
 ---
 
@@ -58,7 +57,7 @@ ADRs: `docs/decisions/`. Inspiration screenshots: `docs/inspiration/`.
 - **Immutable ledgers:** commission_ledger and credit_transactions are INSERT-only from Edge Functions. No client updates ever.
 - **MoMo Reconcile webhook:** Verify MoMo Reconcile webhook signature before updating any commission_ledger status. commission_ledger → 'available' only on verified or timed_out signal from MoMo Reconcile.
 - **Credit balance:** credit_wallets.balance_gmd never goes negative (DB CHECK constraint). Edge Function validates balance before any deduction.
-- **API keys:** `EXPO_PUBLIC_` only for: SUPABASE_URL, SUPABASE_ANON_KEY, POSTHOG_API_KEY, SENTRY_DSN, REVENUECAT_KEY, APP_ENV. Everything else (Groq, OCR Space, Twilio, Resend, ModemPay secret) → Edge Functions only.
+- **API keys:** `EXPO_PUBLIC_` only for: SUPABASE_URL, SUPABASE_ANON_KEY, POSTHOG_API_KEY, SENTRY_DSN, REVENUECAT_KEY, APP_ENV. Everything else (Groq, OCR Space, Meta WhatsApp, Africa's Talking, Resend, ModemPay secret) → Edge Functions only.
 - **RLS:** Every table has RLS. Default deny. Explicit allow per role. Service role only in Edge Functions.
 
 ---
@@ -69,20 +68,26 @@ ADRs: `docs/decisions/`. Inspiration screenshots: `docs/inspiration/`.
 ```
 Credits = store credit. NOT e-money. NOT transferable. NOT withdrawable.
 1 credit = GMD 1.
-Movement IN:  top_up (min GMD 100), gift_card_redeem, commission_credit, refund, bonus
-Movement OUT: purchase, gift_card_purchase (if buyer pays gift card with credits)
-Minimum top-up: GMD 100 (above ModemPay flat fee threshold, low barrier to entry).
-Checkout shortfall options: exact / GMD 200 / GMD 500 / GMD 1,000 / custom (min GMD 100).
-After top-up webhook: checkout auto-completes — user does not re-tap Pay.
-Gift card purchase: accept credits (instant) OR mobile money (ModemPay). Both shown.
+
+TOP-UP PATHS (money in):
+  Wave screenshot  → 0% platform fee, ~2h (MoMo Reconcile verified). FEATURED / RECOMMENDED.
+  ModemPay instant → 1.5% fee, instant. Fallback for urgency.
+  Checkout shortfall → ALWAYS ModemPay instant (delay unacceptable at checkout).
+  Phase 3: Wave Business API → 0% platform fee, instant. Replaces screenshot path.
+
+Movement IN:  top_up (ModemPay), top_up_screenshot (Wave), gift_card_redeem, commission_credit, refund, bonus
+Movement OUT: purchase, gift_card_purchase
+
+Wave screenshot fraud protection (all three must pass before MoMo Reconcile):
+  1. wave_tx_id UNIQUE — same screenshot cannot be submitted twice (DB constraint)
+  2. Timestamp within 24h — no reuse of old screenshots
+  3. Recipient matches wave_business_number in platform_settings — money went to Tems
+
+Minimum top-up: GMD 100.
 credit_wallets.balance_gmd must never go negative (DB CHECK constraint).
 All credit mutations via Edge Functions (service role) — never from client.
-credit_transactions is INSERT-only — immutable ledger, never update or delete.
-Commission payout preference (per user, default: mobile_money):
-  'credits'      → on order delivered, commission auto-credited to wallet instantly
-  'mobile_money' → commission stays 'available', user manually requests payout
-Platform fee (1% of margins) = business revenue, not stored value.
-Paying vendors/affiliates via ModemPay = commercial accounts payable, not regulated.
+credit_transactions is INSERT-only for confirmed credits.
+  Exception: screenshot_status, verified_at, rejection_reason updated on MoMo Reconcile webhook.
 ```
 
 ### Pricing layers
@@ -149,11 +154,11 @@ Display: formatGMD() always — never raw numbers in JSX
 ## Engineering Patterns
 
 ### Styling
-- Tailwind CSS via shadcn/ui design system — CSS variables in `src/index.css`
-- Color palette defined as HSL CSS custom properties on `:root` and `.dark`
-- Font: Inter (Google Fonts import in `src/index.css`)
-- UI components in `src/components/ui/` — standard shadcn pattern
-- All design tokens are CSS variables — no ad-hoc values
+- All design tokens live in `constants/theme.ts` — no ad-hoc values anywhere in component files
+- NativeWind className for all layout — no StyleSheet objects
+- Color palette, typography, border radius, icon set, and spacing scale: **TBD with designer — do not infer or default**
+- When designer has not yet defined a token: use a clearly named placeholder in `constants/theme.ts` (e.g. `colors.primary = 'TBD'`) so it is obvious what needs filling in
+- Never pick a color, font, or icon set independently — these are designer decisions
 
 ### No AI Slop Policy
 Banned UI patterns:
@@ -178,19 +183,22 @@ Imperative. No emoji. Under 72 chars.
 
 ```bash
 # Dev
-bun run dev
-bun run build
+bunx expo start
 bunx tsc --noEmit
-bun run test
+bunx jest && bunx jest --coverage
 
-# Supabase (local)
-cd supabase && npx supabase start
-npx supabase db reset
-npx supabase functions serve
-npx supabase gen types typescript --local > src/integrations/supabase/types.ts
+# Supabase
+bunx supabase start | db reset | db push | functions serve
+bunx supabase gen types typescript --local > types/supabase.ts
 
 # E2E
-bunx playwright test
+maestro test e2e/<flow>.yaml
+
+# Visual verification
+adb exec-out screencap -p > docs/screenshots/<feature_name>.png
+
+# Build
+eas build --platform all --profile production
 ```
 
 ---

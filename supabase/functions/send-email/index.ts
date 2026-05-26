@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,7 +13,7 @@ function esc(str: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
+    .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
 
@@ -86,7 +86,7 @@ async function getEmailByUserId(userId: string): Promise<string | null> {
   return data?.user?.email ?? null;
 }
 
-async function authenticateRequest(req: Request): Promise<string> {
+async function authenticateRequest(req: Request): Promise<{ userId: string; role: string }> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     throw new Error("Unauthorized");
@@ -98,13 +98,23 @@ async function authenticateRequest(req: Request): Promise<string> {
     { global: { headers: { Authorization: authHeader } } }
   );
 
-  const token = authHeader.replace("Bearer ", "");
-  const { data, error } = await supabase.auth.getClaims(token);
-  if (error || !data?.claims) {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) {
     throw new Error("Unauthorized");
   }
 
-  return data.claims.sub as string;
+  // Fetch user's role from public.users
+  const serviceClient = getServiceClient();
+  const { data: userRecord } = await serviceClient
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  return {
+    userId: user.id,
+    role: userRecord?.role || "customer",
+  };
 }
 
 function buildOrderConfirmationHtml(data: {
@@ -146,13 +156,7 @@ function buildOrderConfirmationHtml(data: {
             ${discountRow}
             <tr style="font-weight:bold;font-size:18px"><td colspan="2" style="padding:8px 0;border-top:2px solid #ddd">Total</td><td style="padding:8px 0;border-top:2px solid #ddd;text-align:right">${formatGMD(data.total)}</td></tr>
           </table>
-          <p style="margin-top:16px"><strong>Payment Method:</strong> Bank Transfer</p>
-          <div style="background:#fff7ed;padding:16px;border-radius:8px;border:1px solid #fed7aa;margin-top:8px">
-            <p style="margin:0 0 4px;font-weight:bold">Bank Details</p>
-            <p style="margin:2px 0">Bank: Trust Bank Gambia</p>
-            <p style="margin:2px 0">Account Name: Tems Market</p>
-            <p style="margin:2px 0">Account Number: 1234567890</p>
-          </div>
+          <p style="margin-top:16px"><strong>Payment Method:</strong> Cash on Delivery</p>
           <p style="margin-top:24px;color:#666;font-size:13px">If you have any questions, please contact us at support@temsmarket.com</p>
         </div>
       </div>`,
@@ -253,8 +257,9 @@ serve(async (req) => {
       throw new Error("RESEND_API_KEY is not configured");
     }
 
-    // Authenticate the caller
-    const userId = await authenticateRequest(req);
+    // Authenticate the caller + get their role
+    const { userId, role } = await authenticateRequest(req);
+    const isAdmin = role === "admin" || role === "superadmin";
 
     const payload: EmailPayload = await req.json();
     let subject: string;
@@ -263,40 +268,50 @@ serve(async (req) => {
 
     switch (payload.type) {
       case "order_confirmation": {
-        // Fetch the order and items server-side to build the email from verified data
+        // Fetch the order + product info server-side
         const serviceClient = getServiceClient();
         const { data: order, error: orderErr } = await serviceClient
           .from("orders")
-          .select("id, total, discount_applied, shopper_id")
+          .select(`
+            id,
+            total_amount,
+            discounted_total,
+            coupon_discount,
+            customer_id,
+            quantity,
+            unit_price,
+            vendor_listings!left(
+              vendor_id,
+              products!left(title)
+            )
+          `)
           .eq("id", payload.orderId)
           .single();
+
         if (orderErr || !order) throw new Error("Order not found");
         // Ensure user can only send confirmation for their own order
-        if (order.shopper_id !== userId) throw new Error("Unauthorized");
-
-        const { data: orderItems } = await serviceClient
-          .from("order_items")
-          .select("quantity, price_at_purchase, products(title)")
-          .eq("order_id", order.id);
-
-        const items = (orderItems || []).map((oi: any) => ({
-          title: oi.products?.title || "Product",
-          quantity: oi.quantity,
-          price_at_purchase: oi.price_at_purchase,
-        }));
-
-        const subtotal = items.reduce((s: number, i: any) => s + i.price_at_purchase * i.quantity, 0);
+        if (order.customer_id !== userId) throw new Error("Unauthorized");
 
         const shopperEmail = await getEmailByUserId(userId);
         if (!shopperEmail) throw new Error("Shopper email not found");
         to = shopperEmail;
 
+        const productTitle = (order as any).vendor_listings?.products?.title || "Product";
+        const unitPrice = Number(order.unit_price);
+        const subtotal = unitPrice * order.quantity;
+        const discount = Number(order.coupon_discount || 0);
+        const total = Number(order.discounted_total);
+
         const result = buildOrderConfirmationHtml({
           orderId: order.id,
-          items,
+          items: [{
+            title: productTitle,
+            quantity: order.quantity,
+            price_at_purchase: unitPrice,
+          }],
           subtotal,
-          discount: order.discount_applied || 0,
-          total: order.total,
+          discount,
+          total,
         });
         subject = result.subject;
         html = result.html;
@@ -312,9 +327,6 @@ serve(async (req) => {
         break;
       }
       case "product_approved": {
-        // Only admins can send approval emails
-        const serviceClient = getServiceClient();
-        const { data: isAdmin } = await serviceClient.rpc("has_role", { _user_id: userId, _role: "admin" });
         if (!isAdmin) throw new Error("Unauthorized");
 
         const email = await getEmailByUserId(payload.vendorId);
@@ -326,9 +338,6 @@ serve(async (req) => {
         break;
       }
       case "product_rejected": {
-        // Only admins can send rejection emails
-        const serviceClient = getServiceClient();
-        const { data: isAdmin } = await serviceClient.rpc("has_role", { _user_id: userId, _role: "admin" });
         if (!isAdmin) throw new Error("Unauthorized");
 
         const email = await getEmailByUserId(payload.vendorId);
@@ -340,9 +349,6 @@ serve(async (req) => {
         break;
       }
       case "gift_card": {
-        // Only admins can send gift card emails
-        const serviceClient = getServiceClient();
-        const { data: isAdmin } = await serviceClient.rpc("has_role", { _user_id: userId, _role: "admin" });
         if (!isAdmin) throw new Error("Unauthorized");
 
         to = payload.to;

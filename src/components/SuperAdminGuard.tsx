@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
-const AdminGuard = ({ children }: { children: ReactNode }) => {
+const SuperAdminGuard = ({ children }: { children: ReactNode }) => {
   const { profile, loading } = useAuth();
 
   if (loading) {
@@ -14,11 +14,11 @@ const AdminGuard = ({ children }: { children: ReactNode }) => {
     );
   }
 
-  if (!profile || (profile.role !== "admin" && profile.role !== "superadmin")) {
+  if (!profile || profile.role !== "superadmin") {
     return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
 };
 
-export default AdminGuard;
+export default SuperAdminGuard;

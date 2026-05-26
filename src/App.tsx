@@ -16,6 +16,9 @@ import OrderConfirmation from "./pages/OrderConfirmation";
 import Orders from "./pages/Orders";
 import Account from "./pages/Account";
 import BecomeVendor from "./pages/BecomeVendor";
+import ApplyAsVendor from "./pages/ApplyAsVendor";
+import VendorInvite from "./pages/VendorInvite";
+import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
 import VendorDashboard from "./pages/vendor/VendorDashboard";
 import VendorProducts from "./pages/vendor/VendorProducts";
 import VendorUpload from "./pages/vendor/VendorUpload";
@@ -29,11 +32,14 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminAffiliates from "./pages/admin/AdminAffiliates";
 import AdminVendors from "./pages/admin/AdminVendors";
 import AdminGuard from "./components/AdminGuard";
+import SuperAdminGuard from "./components/SuperAdminGuard";
 import Affiliate from "./pages/Affiliate";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import SelectRole from "./pages/SelectRole";
 import NotFound from "./pages/NotFound";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +62,8 @@ const App = () => (
             <Route path="/orders" element={<Orders />} />
             <Route path="/account" element={<Account />} />
             <Route path="/become-a-vendor" element={<BecomeVendor />} />
+            <Route path="/apply-as-vendor" element={<ApplyAsVendor />} />
+            <Route path="/vendor-invite/:token" element={<VendorInvite />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/select-role" element={<SelectRole />} />
@@ -70,7 +78,10 @@ const App = () => (
             <Route path="/admin/orders" element={<AdminGuard><AdminOrders /></AdminGuard>} />
             <Route path="/admin/vendors" element={<AdminGuard><AdminVendors /></AdminGuard>} />
             <Route path="/admin/affiliates" element={<AdminGuard><AdminAffiliates /></AdminGuard>} />
+            <Route path="/superadmin" element={<SuperAdminGuard><SuperAdminDashboard /></SuperAdminGuard>} />
             <Route path="/affiliate" element={<Affiliate />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </CartProvider>

@@ -25,7 +25,13 @@ const Header = () => {
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
           <Link to="/shop" className="text-muted-foreground hover:text-foreground transition-colors">Shop</Link>
           {user && <Link to="/orders" className="text-muted-foreground hover:text-foreground transition-colors">Orders</Link>}
-          {profile?.role === "vendor" ? (
+          {profile?.role === "superadmin" ? (
+            <Link to="/superadmin" className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors font-semibold">
+              Super Admin
+            </Link>
+          ) : profile?.role === "admin" ? (
+            <Link to="/admin" className="text-muted-foreground hover:text-foreground transition-colors">Admin Dashboard</Link>
+          ) : profile?.role === "vendor" ? (
             <Link to="/vendor/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">Vendor Dashboard</Link>
           ) : (
             <Link to="/become-a-vendor" className="text-muted-foreground hover:text-foreground transition-colors">Sell on Tems Market</Link>
@@ -84,7 +90,15 @@ const Header = () => {
         <div className="md:hidden border-t border-border bg-card px-4 pb-4 pt-2 space-y-2 animate-fade-in-up">
           <Link to="/shop" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Shop</Link>
           {user && <Link to="/orders" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Orders</Link>}
-          <Link to="/become-a-vendor" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Sell on Tems Market</Link>
+          {profile?.role === "superadmin" ? (
+            <Link to="/superadmin" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-purple-600 dark:text-purple-400">Super Admin</Link>
+          ) : profile?.role === "admin" ? (
+            <Link to="/admin" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Admin Dashboard</Link>
+          ) : profile?.role === "vendor" ? (
+            <Link to="/vendor/dashboard" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Vendor Dashboard</Link>
+          ) : (
+            <Link to="/become-a-vendor" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Sell on Tems Market</Link>
+          )}
           {user ? (
             <>
               <Link to="/account" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Account</Link>

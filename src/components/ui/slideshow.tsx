@@ -47,19 +47,30 @@ export default function Slideshow({
   className = "",
 }: SlideshowProps) {
   const [current, setCurrent] = useState(0);
+  const [loadedSlides, setLoadedSlides] = useState<Set<number>>(new Set([0]));
   const [scrollOffset, setScrollOffset] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isPausedRef = useRef(false);
   const rAFId = useRef<number | null>(null);
   const navigate = useNavigate();
 
+  const goToSlide = useCallback((index: number) => {
+    setCurrent(index);
+    setLoadedSlides((prev) => {
+      if (prev.has(index)) return prev;
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
+  }, []);
+
   const nextSlide = useCallback(
-    () => setCurrent((prev) => (prev + 1) % slides.length),
-    [slides.length],
+    () => goToSlide((current + 1) % slides.length),
+    [current, slides.length, goToSlide],
   );
   const prevSlide = useCallback(
-    () => setCurrent((prev) => (prev - 1 + slides.length) % slides.length),
-    [slides.length],
+    () => goToSlide((current - 1 + slides.length) % slides.length),
+    [current, slides.length, goToSlide],
   );
 
   // --- Parallax scroll effect ---
@@ -153,7 +164,7 @@ export default function Slideshow({
             ${slide.link ? "cursor-pointer" : ""}
           `}
           style={{
-            backgroundImage: `url(${slide.img})`,
+            backgroundImage: loadedSlides.has(i) ? `url(${slide.img})` : undefined,
             backgroundPosition: `center calc(50% + ${scrollOffset}px)`,
           }}
           role="group"
@@ -231,7 +242,7 @@ export default function Slideshow({
         {slides.map((_, i) => (
           <button
             key={i}
-            onClick={() => setCurrent(i)}
+            onClick={() => goToSlide(i)}
             className={`
               size-1.5 md:size-2 rounded-full transition-all duration-300
               ${i === current ? "bg-white w-4 md:w-6" : "bg-white/40 hover:bg-white/60"}

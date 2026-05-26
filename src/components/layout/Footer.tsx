@@ -5,7 +5,7 @@ const Footer = () => (
     <div className="container py-10 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
       <div>
         <h4 className="font-display text-base font-semibold mb-3 text-foreground">Tems Market</h4>
-        <p className="text-muted-foreground leading-relaxed">Your 5-role layered-margin social commerce marketplace for The Gambia.</p>
+        <p className="text-muted-foreground leading-relaxed">Your local marketplace for The Gambia. Shop trusted vendors, sell your products.</p>
       </div>
       <div>
         <h5 className="font-semibold mb-3 text-foreground">Shop</h5>
@@ -23,11 +23,10 @@ const Footer = () => (
         </ul>
       </div>
       <div>
-        <h5 className="font-semibold mb-3 text-foreground">Support</h5>
+        <h5 className="font-semibold mb-3 text-foreground">Legal</h5>
         <ul className="space-y-2 text-muted-foreground">
-          <li><span className="cursor-default">Help Center</span></li>
-          <li><span className="cursor-default">Contact Us</span></li>
-          <li><span className="cursor-default">Privacy Policy</span></li>
+          <li><Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
+          <li><Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link></li>
         </ul>
       </div>
     </div>
@@ -38,3 +37,4 @@ const Footer = () => (
 );
 
 export default Footer;
+

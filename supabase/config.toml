@@ -8,3 +8,15 @@ verify_jwt = false
 
 [functions.modempay-webhook]
 verify_jwt = false
+
+[functions.complete-vendor-invite]
+verify_jwt = false
+
+[functions.send-notification]
+verify_jwt = false
+
+[functions.update-password]
+verify_jwt = false
+
+[functions.invite-admin]
+verify_jwt = false

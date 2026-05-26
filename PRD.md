@@ -81,12 +81,16 @@ Tems Market gives every person in The Gambia a path to income — vendors source
 | Mobile App | Expo React Native | Cross-platform iOS + Android, one codebase |
 | Website | Next.js (or Expo Web) | Marketing page + download links + admin web portal |
 | Backend | Supabase (PostgreSQL + Edge Functions) | Auth, database, storage, realtime, serverless functions for webhooks |
-| Auth | Supabase Auth + Twilio OTP | Phone-number-first auth, role-based access |
+| Auth | Supabase Auth + WhatsApp OTP | Phone-number-first auth. OTP sent via WhatsApp (Meta Cloud API). SMS fallback via Africa's Talking. |
 | Payments | ModemPay API | Gambia-native, covers QMoney, AfriMoney, Wave, bank cards |
 | Subscriptions | RevenueCat | Vendor monthly listing fee via App Store / Play Store + web billing |
 | AI | Groq API (LLaMA vision) | Product description generation, OCR enhancement |
-| OCR | OCR Space API | Vendor ID and document scanning during onboarding |
-| Notifications | Twilio (SMS + WhatsApp API) | OTP, order updates, commission alerts, invite flows |
+| OCR | Hirak OCR API | Vendor ID and document scanning. Free, unlimited requests, 100+ languages. |
+| URL Shortener | Rebrandly | Branded affiliate short links (tems.link/{code}) |
+| Phone Validation | Veriphone | Validate phone numbers at signup and top-up before sending OTP |
+| Content Moderation | PurgoMalum | Free profanity/obscenity filter on product titles and descriptions |
+| Notifications | Meta WhatsApp Cloud API | OTP, order updates, commission alerts, invite flows. Service messages within 24h window free. |
+| SMS Fallback | Africa's Talking | SMS OTP + notifications for users without WhatsApp |
 | Analytics | PostHog | Funnel tracking, affiliate link events, feature flags |
 | Error Monitoring | Sentry | Crash reporting, payment error alerts, session replay |
 | Email | Resend | Gift card delivery, order confirmation emails, promo emails |
@@ -108,13 +112,14 @@ Tems Market gives every person in The Gambia a path to income — vendors source
     ┌──────────┼──────────────────┐
     │          │                  │
     ▼          ▼                  ▼
-ModemPay    Twilio             Groq API
-(payments   (SMS/WhatsApp      (AI product
-& payouts)   notifications)     description
-    │                           + OCR enhance)
-    ▼                               │
-GamSwitch                      OCR Space
-/ BANTABA 2.0                  (document scan)
+ModemPay    Meta WhatsApp      Groq API
+(payments   Cloud API          (AI product
+& payouts)  (OTP + notifs)     description
+    │        + Africa's          + OCR enhance)
+    │        Talking SMS             │
+    ▼        (fallback)         OCR Space
+GamSwitch                      (document scan)
+/ BANTABA 2.0
 (national payment
  infrastructure)
 ```
@@ -125,9 +130,13 @@ GamSwitch                      OCR Space
 |---------|---------|-------------|------|
 | ModemPay | Payments, split payouts, payment links | API Key | docs.modempay.com |
 | Supabase | Database, auth, storage, edge functions | Project API Key | supabase.com/docs |
-| Twilio | OTP SMS, WhatsApp notifications, invite SMS | Account SID + Auth Token | twilio.com/docs |
+| Meta WhatsApp Cloud API | OTP, order notifications, commission alerts, invite messages | Access Token | developers.facebook.com/docs/whatsapp |
+| Africa's Talking | SMS OTP fallback for users without WhatsApp | API Key + Username | africastalking.com/docs |
 | Groq API | LLM vision for product image → description, OCR text cleanup | API Key | console.groq.com/docs |
-| OCR Space | Vendor document / ID text extraction | API Key | ocr.space/ocrapi |
+| Hirak OCR | Vendor document / ID text extraction. Free, unlimited requests. | API Key | hirak.ai |
+| Rebrandly | Branded affiliate short links — tems.link/{code} | API Key | rebrandly.com/developers |
+| Veriphone | Phone number validation at signup and top-up | API Key | veriphone.io |
+| PurgoMalum | Free profanity/obscenity filter on product titles and descriptions | None (free) | purgomalum.com |
 | PostHog | Analytics, funnel tracking, feature flags | API Key | posthog.com/docs |
 | Sentry | Error tracking, crash reporting | DSN | docs.sentry.io |
 | RevenueCat | Vendor subscription billing (App Store / Play Store / Web) | API Key | docs.revenuecat.com |
@@ -144,14 +153,18 @@ GamSwitch                      OCR Space
 | MODEMPAY_PUBLIC_KEY | ModemPay public key | Yes |
 | MODEMPAY_WEBHOOK_SECRET | ModemPay webhook verification secret | Yes |
 | MOMO_RECONCILE_API_URL | MoMo Reconcile API base URL | Yes |
-| MOMO_RECONCILE_API_KEY | MoMo Reconcile platform API key (Tems Market's account) | Yes |
+| MOMO_RECONCILE_API_KEY | MoMo Reconcile platform API key | Yes |
 | MOMO_RECONCILE_WEBHOOK_SECRET | MoMo Reconcile webhook verification secret | Yes |
-| TWILIO_ACCOUNT_SID | Twilio account SID | Yes |
-| TWILIO_AUTH_TOKEN | Twilio auth token | Yes |
-| TWILIO_PHONE_NUMBER | Twilio sending phone number | Yes |
-| TWILIO_WHATSAPP_NUMBER | Twilio WhatsApp sender number | Yes |
+| META_WHATSAPP_ACCESS_TOKEN | Meta WhatsApp Cloud API access token | Yes |
+| META_WHATSAPP_PHONE_NUMBER_ID | WhatsApp Business phone number ID | Yes |
+| META_WHATSAPP_BUSINESS_ACCOUNT_ID | WhatsApp Business Account ID | Yes |
+| META_WHATSAPP_WEBHOOK_VERIFY_TOKEN | Webhook verification token for incoming messages | Yes |
+| AFRICA_TALKING_API_KEY | Africa's Talking API key (SMS fallback) | Yes |
+| AFRICA_TALKING_USERNAME | Africa's Talking username | Yes |
 | GROQ_API_KEY | Groq API key | Yes |
-| OCR_SPACE_API_KEY | OCR Space API key | Yes |
+| HIRAK_OCR_API_KEY | Hirak OCR API key (vendor ID document extraction) | Yes |
+| REBRANDLY_API_KEY | Rebrandly API key (branded affiliate short links) | Yes |
+| VERIPHONE_API_KEY | Veriphone phone validation key | Yes |
 | POSTHOG_API_KEY | PostHog project API key | Yes |
 | SENTRY_DSN | Sentry DSN for crash reporting | Yes |
 | REVENUECAT_API_KEY_IOS | RevenueCat iOS key | Yes |
@@ -348,7 +361,7 @@ GamSwitch                      OCR Space
 | type | TEXT | Yes | — | otp, order_update, commission, invite, approval |
 | channel | TEXT | Yes | sms, whatsapp | — |
 | message | TEXT | Yes | — | Full message sent |
-| twilio_sid | TEXT | No | — | Twilio message SID |
+| meta_message_id | TEXT | No | — | Meta WhatsApp message ID (wamid) or Africa's Talking message ID |
 | sent_at | TIMESTAMPTZ | Yes | Default now() | — |
 
 ### Entity Relationships
@@ -396,48 +409,52 @@ coupons (1) ────< (many) coupon_uses
 ### Feature 1: Authentication & Role-Based Access
 
 #### Description
-Phone-number-first auth using Supabase Auth + Twilio OTP. Each user has exactly one role. Role determines which screens are shown and which API calls are permitted. Superadmin and Admin are invite-only; Vendor is invite-only; Affiliate and Customer can self-register.
+Phone-number-first auth using Supabase Auth + WhatsApp OTP (Meta Cloud API) with Africa's Talking SMS as fallback. Customers can browse freely without an account. When they want to buy, account creation happens inline at checkout — phone number, WhatsApp OTP, done. No name, no password, no profile setup required to place a first order. Password is optional and prompted after purchase.
+
+Vendor onboarding uses invite links (two paths — see Feature 3). Admin onboarding uses direct invite links. Superadmin is hardcoded.
 
 #### User Stories
-- As any user, I want to log in with my phone number so I don't need to remember an email/password
-- As a superadmin, I want my login to be protected by 2FA so that my account can't be compromised
-- As an invited admin/vendor, I want tapping the invite SMS link to take me directly to account setup
+- As a customer, I want to browse all products without creating an account
+- As a customer, I want to buy something with just my phone number — no lengthy signup
+- As a superadmin, I want 2FA protecting my login
+- As an invited vendor/admin, I want tapping the invite link to take me straight to account setup
 
 #### Functional Requirements
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| F1.1 | Phone number OTP login via Twilio (6-digit code, 5-minute expiry) | Must Have |
-| F1.2 | Role-based navigation — each role sees only their screens | Must Have |
-| F1.3 | Invite flow: superadmin creates admin → Twilio sends SMS with deep link | Must Have |
-| F1.4 | Invite flow: admin creates vendor → Twilio sends SMS with deep link | Must Have |
-| F1.5 | Self-registration for Affiliate and Customer with role select screen | Must Have |
-| F1.6 | Superadmin login uses additional password (not OTP-only) | Must Have |
-| F1.7 | Suspended users see a locked screen explaining their status | Must Have |
-| F1.8 | Pending vendors see a waiting screen until admin approves | Must Have |
-| F1.9 | Session persists across app restarts (Supabase session token) | Must Have |
-| F1.10 | Date of birth field required at registration for all self-registering users (Customer + Affiliate). If DOB indicates under 18: registration blocked with message "You must be 18 or older to use Tems Market." Account not created. | Must Have |
-| F1.11 | "I confirm I am 18 years or older" checkbox required before submitting registration. Cannot proceed without checking it. | Must Have |
-| F1.12 | DOB and age_verified stored on users record. age_verified = true when DOB >= 18 years ago at time of signup. | Must Have |
-| F1.13 | Affiliate onboarding includes a lightweight ID upload step (camera/gallery → OCR Space extracts text → stored for admin audit). Admin does not need to manually review each affiliate ID but can pull them for spot-checks. This verifies affiliates are real adults before they can earn commissions. | Must Have |
-| F1.14 | Credit top-up acts as a secondary enforcement layer: QMoney/AfriMoney/Wave accounts in The Gambia require National ID to register. Successful top-up implies adult mobile money account. No additional check needed at top-up time. | Note only — not a built feature |
+| F1.1 | Phone number OTP login via WhatsApp (Meta Cloud API). Africa's Talking SMS if user has no WhatsApp. 6-digit code, 5-minute expiry. | Must Have |
+| F1.2 | Guest browsing: customers see the full product feed, search, product detail — no account required | Must Have |
+| F1.3 | Inline checkout account creation: guest taps "Buy Now" → phone number input → WhatsApp OTP → account silently created or logged in → payment screen | Must Have |
+| F1.4 | Password is optional for customers. Login is always phone + WhatsApp OTP. Password can be added later in profile. | Must Have |
+| F1.5 | Role-based navigation: each role sees only their screens. Guest sees customer-style browse only. | Must Have |
+| F1.6 | Invite flow: superadmin creates admin → WhatsApp message with invite link sent (Meta Cloud API) | Must Have |
+| F1.7 | Invite flow: admin sends direct vendor invite → WhatsApp message with invite link sent automatically | Must Have |
+| F1.8 | Self-registration for Affiliate and Customer with role select screen | Must Have |
+| F1.9 | Superadmin login: email + password + WhatsApp OTP (2FA). Must have all three. | Must Have |
+| F1.10 | Suspended users see a locked screen explaining their status | Must Have |
+| F1.11 | Session persists across app restarts (Supabase session token in SecureStore) | Must Have |
 
-#### Twilio Notification Templates
+#### WhatsApp Notification Templates (Meta Cloud API)
 
-| Trigger | Channel | Message |
-|---------|---------|---------|
-| OTP login | SMS | "Your Tems Market code is {code}. Expires in 5 minutes." |
-| Admin invite | SMS | "You've been added as a Tems Market Admin. Tap to set up: {link}" |
-| Vendor invite | SMS | "You've been invited to sell on Tems Market. Tap to register: {link}" |
-| Vendor approved | WhatsApp | "✅ Your Tems Market vendor account is approved! Open the app to start listing." |
-| Vendor rejected | SMS | "Your Tems Market application was not approved. Reason: {reason}. Contact your admin." |
+| Trigger | Template | Message |
+|---------|----------|---------|
+| OTP login/signup | Authentication | "Your Tems Market code is {code}. Expires in 5 minutes." |
+| Admin invite | Utility | "You've been added as a Tems Market admin. Set up your account: {link}" |
+| Vendor invite (direct) | Utility | "You've been invited to sell on Tems Market. Tap to set up your account: {link}" |
+| Vendor invite (application approved) | Utility | "Your Tems Market vendor application was approved! Set up your account: {link}" |
+| Any event, no WhatsApp | SMS via Africa's Talking | Same text, delivered as SMS |
 
 #### API Endpoints (Supabase Edge Functions)
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | /auth/request-otp | None | Send Twilio OTP to phone number |
-| POST | /auth/verify-otp | None | Verify OTP, return Supabase session |
-| POST | /auth/invite-admin | Superadmin | Create admin user, send invite SMS |
+| POST | /auth/request-otp | None | Send WhatsApp OTP via Meta Cloud API (Africa's Talking SMS fallback) |
+| POST | /auth/verify-otp | None | Verify OTP, return Supabase session, create account if new |
+| POST | /auth/invite-admin | Superadmin | Create admin user, send WhatsApp invite link |
+| POST | /auth/invite-vendor-direct | Admin | Create vendor application, send WhatsApp invite link |
+| POST | /auth/complete-invite | Invite token | Complete account setup after invite link tap |
+
+
 | POST | /auth/invite-vendor | Admin | Create pending vendor, send invite SMS |
 | POST | /auth/complete-invite | Invite token | Finish account setup after invite link tap |
 
@@ -467,47 +484,47 @@ The core commercial mechanic. Products have three price layers: base (superadmin
 
 ---
 
-### Feature 3: Vendor Onboarding & Verification
+### Feature 3: Vendor Onboarding — Two Paths
 
 #### Description
-Admin sends invite SMS. Vendor taps link, opens app, fills business info, uploads ID document (OCR Space extracts text, Groq structures it), sets payout wallet, submits. Admin reviews structured ID data and approves or rejects. On approval, ModemPay sub-account is created automatically via Supabase Edge Function.
+Two entry paths for vendors — admin chooses which to use depending on the situation. Both end identically: vendor receives a unique invite link, sets a password, and is immediately active.
+
+**Path A (Admin-initiated):** Admin knows the vendor and wants to invite them directly. Enters phone number → system sends WhatsApp invite link → vendor taps link → sets password → in.
+
+**Path B (Vendor-initiated):** Vendor discovers Tems Market and applies via a public form. Admin sees application in dashboard → reviews → generates invite link → shares it however they want. Vendor taps link → sets password → in.
+
+Both paths create a `vendor_applications` record. Admin dashboard shows both: pending applications (Path B) and a "Send Direct Invite" button (Path A).
 
 #### User Stories
-- As an admin, I want to send a vendor invite in two taps
-- As a vendor, I want the ID upload to auto-fill my details so I don't have to type everything
-- As an admin, I want to see structured ID data (not a raw photo) so verification is fast
-- As a vendor, I want to know immediately when I'm approved or rejected
+- As an admin, I want to invite a vendor directly by entering their phone number
+- As an admin, I want to review vendor applications and generate invite links
+- As a vendor, I want to apply to sell on Tems Market without needing an admin to find me first
+- As a vendor, I want to tap a link, set my password, and be immediately active — no waiting for approval
 
 #### Functional Requirements
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| F3.1 | Admin enters vendor phone → Twilio SMS invite with deep link sent | Must Have |
-| F3.2 | Vendor opens deep link → app opens to invite-specific onboarding | Must Have |
-| F3.3 | Vendor uploads photo of ID document via camera or gallery | Must Have |
-| F3.4 | OCR Space API extracts text from ID image | Must Have |
-| F3.5 | Groq API cleans and structures OCR text into name, ID number, DOB fields | Must Have |
-| F3.6 | Structured data + raw image stored in Supabase Storage | Must Have |
-| F3.7 | Vendor selects payout wallet (Wave or AfriMoney) and enters account number | Must Have |
-| F3.8 | On admin approval: Supabase Edge Function calls ModemPay API to create sub-account for vendor | Must Have |
-| F3.9 | On approval: vendor receives WhatsApp notification | Must Have |
-| F3.10 | On rejection: vendor receives SMS with reason | Must Have |
-| F3.11 | Admin sees structured ID data on review screen (not just raw photo) | Must Have |
-
-#### ModemPay Sub-Account Creation (on vendor approval)
-```js
-// Triggered by Supabase Edge Function on vendor approval
-const subAccount = await modempay.subAccounts.create({
-  business_name: vendor.business_name,
-  percentage: vendor_percentage, // Calculated from price layers
-  settlement_code: vendor.settlement_code, // "wave" or "afrimoney"
-  account_number: vendor.account_number,
-});
-// Store subAccount.id in vendor_profiles.modempay_subaccount_id
-```
+| **Path A — Direct invite** | | |
+| F3.1 | Admin enters vendor phone number → system generates invite link → sends via WhatsApp (Meta Cloud API) automatically | Must Have |
+| F3.2 | WhatsApp message: "You've been invited to sell on Tems Market. Tap to set up your account: {link}" | Must Have |
+| **Path B — Application form** | | |
+| F3.3 | Public application form (website + unauthenticated app screen): business name, category, phone, description, location | Must Have |
+| F3.4 | On submit: vendor_applications record created (status = pending). Vendor sees "We'll be in touch soon." | Must Have |
+| F3.5 | Admin dashboard: pending applications queue. Each shows: business name, category, phone, description, submitted date. | Must Have |
+| F3.6 | Admin taps "Generate Invite Link" on any application → unique token, 7-day expiry, link shown on screen for admin to copy and share | Must Have |
+| F3.7 | Admin can also reject application: status → 'rejected', reason saved | Must Have |
+| **Shared — invite link completion** | | |
+| F3.8 | Invite link: `temsmarket.app/vendor-invite/{token}` — works in app and website | Must Have |
+| F3.9 | Vendor taps link → "Set up your vendor account" screen. Phone pre-filled (read-only). Password + confirm. | Must Have |
+| F3.10 | On submit: user record created, vendor_profiles created with application data, vendor is immediately active | Must Have |
+| F3.11 | Vendor lands on dashboard with "Complete your profile" banner: payout wallet setup (required for payouts) + optional ID verification | Must Have |
+| F3.12 | Expired link (> 7 days): "This invite has expired. Contact your Tems Market admin for a new one." | Must Have |
+| F3.13 | Already-used link: "This account is already set up. Sign in instead." | Must Have |
+| F3.14 | ModemPay sub-account created when vendor completes payout wallet setup (not at invite — they may not know their wallet details yet) | Must Have |
 
 ---
 
-### Feature 4: Product Catalogue Management
+
 
 #### Description
 Superadmin adds products to the base catalogue with photos and floor prices. Groq vision auto-generates title, description, and suggested price from the photo. Admin then sets their margin on each product. Vendors browse the admin-priced catalogue and set their selling price. Vendors can also submit their own products for admin approval.
@@ -559,16 +576,17 @@ The killer feature. Every vendor listing has a unique shareable affiliate link p
 |----|-------------|----------|
 | F5.1 | Affiliate browses all active vendor listings | Must Have |
 | F5.2 | Each product card shows "Your commission: GMD X" calculated from a % of vendor_margin | Must Have |
-| F5.3 | Tap "Get My Link" → system creates affiliate_links record with unique short_code if not exists, returns shareable URL | Must Have |
-| F5.4 | Share sheet opens with: WhatsApp, Facebook, TikTok, Instagram, Copy to clipboard | Must Have |
-| F5.5 | Affiliate link URL format: temsmarket.app/p/{short_code} | Must Have |
-| F5.6 | When customer taps link: app opens product detail with affiliate_link_id in memory. If app not installed: website shows product + download prompt | Must Have |
-| F5.7 | At order placement, affiliate_link_id stored on order if present | Must Have |
-| F5.8 | On payment confirmation webhook: commission_ledger entry created for affiliate | Must Have |
-| F5.9 | Affiliate dashboard: earnings today / this week / total, pending vs available | Must Have |
-| F5.10 | Per-link analytics: clicks, conversions, GMD earned (PostHog events) | Must Have |
-| F5.11 | Payout request: min 10 GMD, enter Wave/AfriMoney number, triggers ModemPay payout | Must Have |
-| F5.12 | Affiliate receives WhatsApp notification when commission is paid out | Should Have |
+| F5.3 | Tap "Get My Link" → system creates affiliate_links record with unique short_code if not exists, creates Rebrandly branded short link (tems.link/{short_code}), returns both URLs | Must Have |
+| F5.4 | Share sheet opens with: WhatsApp, Facebook, TikTok, Instagram, Copy to clipboard, **Download QR Code** | Must Have |
+| F5.5 | Affiliate link URL formats: long form `temsmarket.app/p/{short_code}` + branded short `tems.link/{short_code}` via Rebrandly. Short form used in all sharing. | Must Have |
+| F5.6 | QR Code generation: free API call with the short URL → QR code image downloaded to phone → affiliate can print, display, screenshot and share | Must Have |
+| F5.7 | When customer taps link: app opens product detail with affiliate_link_id in memory. If app not installed: website shows product + download prompt | Must Have |
+| F5.8 | At order placement, affiliate_link_id stored on order if present | Must Have |
+| F5.9 | On payment confirmation webhook: commission_ledger entry created for affiliate | Must Have |
+| F5.10 | Affiliate dashboard: earnings today / this week / total, pending vs available | Must Have |
+| F5.11 | Per-link analytics: clicks, conversions, GMD earned (PostHog events) | Must Have |
+| F5.12 | Payout request: min 10 GMD, enter Wave/AfriMoney number, triggers ModemPay payout | Must Have |
+| F5.13 | Affiliate receives WhatsApp notification when commission is paid out | Should Have |
 
 #### Commission Calculation
 ```
@@ -630,7 +648,7 @@ Customer selects mobile money method, enters number, confirms. ModemPay Payment 
 | F6.6 | Customer confirms payment on their mobile money app (standard mobile money flow) | Must Have |
 | F6.7 | ModemPay webhook → Supabase Edge Function: update order payment_status to "paid" | Must Have |
 | F6.8 | Same webhook: create commission_ledger entries for affiliate (if any) and admin | Must Have |
-| F6.9 | Twilio SMS confirmation sent to customer on payment success | Must Have |
+| F6.9 | WhatsApp notification sent to customer on payment success (Meta Cloud API) | Must Have |
 | F6.10 | Vendor receives WhatsApp notification of new order on payment success | Must Have |
 | F6.11 | Failed payment: customer sees friendly error, order status = "payment_failed" | Must Have |
 | F6.12 | Refund flow: superadmin/admin can trigger refund via ModemPay refund API | Should Have |
@@ -667,7 +685,7 @@ Full order lifecycle management. Customers see status. Vendors update status. Ad
 |----|-------------|----------|
 | F7.1 | Order status flow: placed → confirmed → preparing → ready → delivered | Must Have |
 | F7.2 | Vendor can update status on each order | Must Have |
-| F7.3 | Twilio WhatsApp notification to customer on each status change | Must Have |
+| F7.3 | WhatsApp notification to customer on each status change (Meta Cloud API) | Must Have |
 | F7.4 | Customer sees real-time order tracking screen (Supabase Realtime) | Must Have |
 | F7.5 | Admin sees all orders with filters: status, vendor, date range | Must Have |
 | F7.6 | Superadmin sees all orders with financial breakdown per order | Must Have |
@@ -710,16 +728,16 @@ When superadmin or vendor uploads a product photo, Groq vision model analyzes th
 
 ---
 
-### Feature 10: Vendor Document Verification (OCR Space + Groq)
+### Feature 10: Vendor Document Verification (Hirak OCR + Groq)
 
 #### Description
-During vendor onboarding, vendor photographs their ID or business document. OCR Space extracts raw text. Groq cleans and structures it into readable fields. Admin sees structured data on the review screen — not just a photo — making verification faster and consistent.
+During vendor onboarding, vendor photographs their ID or business document. Hirak OCR (free, unlimited requests, 100+ languages) extracts raw text. Groq cleans and structures it into readable fields. Admin sees structured data on the review screen — not just a photo — making verification faster and consistent.
 
 #### Functional Requirements
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | F10.1 | Camera/gallery photo upload of ID document | Must Have |
-| F10.2 | OCR Space API call via Supabase Edge Function extracts raw text | Must Have |
+| F10.2 | Hirak OCR API call via Supabase Edge Function extracts raw text (free, unlimited) | Must Have |
 | F10.3 | Groq API structures raw OCR text into: name, ID number, DOB, document type | Must Have |
 | F10.4 | Both raw image URL and structured JSON stored in vendor_profiles | Must Have |
 | F10.5 | Admin review screen shows structured fields prominently + option to view raw image | Must Have |
@@ -727,28 +745,78 @@ During vendor onboarding, vendor photographs their ID or business document. OCR 
 
 ---
 
-### Feature 11: Notifications System (Twilio)
+### Feature 11: Notifications System (Meta WhatsApp Cloud API + Africa's Talking)
 
 #### Description
-Twilio powers all SMS and WhatsApp notifications throughout the app. Every critical event has a defined notification. All sent notifications are logged in notifications_log for audit.
+Meta WhatsApp Cloud API powers all WhatsApp notifications. Africa's Talking handles SMS fallback for users without WhatsApp. All OTP codes sent via WhatsApp authentication template — Africa's Talking SMS fires automatically if WhatsApp delivery fails. Every notification is logged in notifications_log for audit.
+
+**Cost model:**
+- OTP (authentication template): cheap "Rest of Africa" rate — Gambia not in expensive international tier
+- Order updates within 24h customer service window: **free**
+- Commission alerts, invite messages (utility templates): cheap rate
+- Africa's Talking SMS fallback: GMD 1–3/message, only fires on WhatsApp failure
+
+#### API Pattern (all notification Edge Functions use this)
+```typescript
+// Meta WhatsApp Cloud API v23.0
+POST https://graph.facebook.com/v23.0/{META_WHATSAPP_PHONE_NUMBER_ID}/messages
+Authorization: Bearer {META_WHATSAPP_ACCESS_TOKEN}
+Content-Type: application/json
+
+// Template message (OTP, invites, commission alerts):
+{
+  "messaging_product": "whatsapp",
+  "to": "+220XXXXXXX",
+  "type": "template",
+  "template": {
+    "name": "template_name",
+    "language": { "code": "en" },
+    "components": [{ "type": "body", "parameters": [{ "type": "text", "text": "value" }] }]
+  }
+}
+
+// Free text message (within 24h customer service window):
+{
+  "messaging_product": "whatsapp",
+  "recipient_type": "individual",
+  "to": "+220XXXXXXX",
+  "type": "text",
+  "text": { "body": "Your message here" }
+}
+```
+
+#### Pre-approved Templates Required (create in Meta Business Manager)
+| Template name | Type | Used for |
+|---|---|---|
+| `tems_market_otp` | Authentication | Login OTP code |
+| `tems_market_invite_admin` | Utility | Admin invite with link |
+| `tems_market_invite_vendor` | Utility | Vendor invite with link |
+| `tems_market_vendor_approved` | Utility | Vendor approval notification |
+| `tems_market_vendor_rejected` | Utility | Vendor rejection with reason |
+| `tems_market_new_order` | Utility | New order alert to vendor |
+| `tems_market_commission_earned` | Utility | Commission earned alert |
+| `tems_market_payout_sent` | Utility | Payout confirmation |
 
 #### Notification Event Map
 
-| Event | Recipient | Channel | Message |
-|-------|-----------|---------|---------|
-| OTP login | User | SMS | "Your Tems Market code is {code}." |
-| Admin invited | New admin | SMS | "You've been added as Admin on Tems Market: {link}" |
-| Vendor invited | New vendor | SMS | "You've been invited to sell on Tems Market: {link}" |
-| Vendor approved | Vendor | WhatsApp | "✅ Your vendor account is approved! Open Tems Market to start listing." |
-| Vendor rejected | Vendor | SMS | "Your application was not approved. Reason: {reason}" |
-| Order placed | Vendor | WhatsApp | "🛒 New order! {customer_name} ordered {product} × {qty}. Open app to confirm." |
-| Order confirmed | Customer | WhatsApp | "✅ Your Tems Market order is confirmed and being prepared." |
-| Order ready | Customer | WhatsApp | "📦 Your order is ready for delivery!" |
-| Order delivered | Customer | WhatsApp | "🎉 Your order has been delivered. Thank you for shopping Tems Market!" |
-| Payment success | Customer | SMS | "Payment of GMD {amount} confirmed for your Tems Market order #{id}." |
-| Commission earned | Affiliate | WhatsApp | "💰 You earned GMD {amount} commission on a sale. Balance: GMD {balance}." |
-| Payout success | Any | WhatsApp | "💸 GMD {amount} has been sent to your {wallet} account." |
-| Payout failed | Any | SMS | "Payout of GMD {amount} failed. Please check your wallet number and try again." |
+| Event | Recipient | Channel | Cost |
+|-------|-----------|---------|------|
+| OTP login | User | WhatsApp template / SMS fallback | Cheap auth rate |
+| Admin invited | New admin | WhatsApp template | Cheap utility rate |
+| Vendor invited | New vendor | WhatsApp template | Cheap utility rate |
+| Vendor approved | Vendor | WhatsApp template | Cheap utility rate |
+| Vendor rejected | Vendor | WhatsApp template / SMS fallback | Cheap utility rate |
+| New order | Vendor | WhatsApp template | Cheap utility rate |
+| Order confirmed | Customer | WhatsApp text (24h window) | **Free** |
+| Order preparing | Customer | WhatsApp text (24h window) | **Free** |
+| Order ready | Customer | WhatsApp text (24h window) | **Free** |
+| Order delivered | Customer | WhatsApp text (24h window) | **Free** |
+| Payment confirmed | Customer | WhatsApp text (24h window) | **Free** |
+| Commission earned | Affiliate/Vendor/Admin | WhatsApp template | Cheap utility rate |
+| Payout sent | Any | WhatsApp template | Cheap utility rate |
+| Payout failed | Any | WhatsApp template / SMS fallback | Cheap utility rate |
+
+
 
 ---
 
@@ -860,7 +928,7 @@ Resend handles all transactional emails from Tems Market. All emails use a consi
 | Promo gift card issued | Recipient email | "🎁 A gift card from Tems Market just for you" |
 | Promotional blast | Subscriber email list | [Campaign subject] |
 
-> Note: Email is secondary to Twilio WhatsApp/SMS. Phone notifications fire first. Email is used specifically for gift cards (which require email delivery) and order confirmations for users who provide an email address.
+> Note: Email is secondary to Meta WhatsApp Cloud API. WhatsApp notifications fire first. Email is used specifically for gift cards (which require email delivery) and order confirmations for users who provide an email address.
 
 #### Functional Requirements
 | ID | Requirement | Priority |
@@ -948,7 +1016,7 @@ When a customer can't find what they want (AI search returns no match, or a prod
 | F19.2 | Tap opens a simple form: product description (text), category (picker), approximate budget (optional) | Must Have |
 | F19.3 | Request saved to customer_requests table with customer_id, description, category, budget, status = 'open' | Must Have |
 | F19.4 | Superadmin and Admin see a "Requests" tab showing all open requests, sorted by volume (most requested first) | Must Have |
-| F19.5 | Admin can mark a request as 'fulfilled' once a matching product is listed — customer receives Twilio WhatsApp: "Good news! What you requested is now available on Tems Market." | Must Have |
+| F19.5 | Admin can mark a request as 'fulfilled' once a matching product is listed — customer receives WhatsApp message: "Good news! What you requested is now available on Tems Market." | Must Have |
 | F19.6 | PostHog tracks: product_requested (category, budget_range) — reveals demand gaps | Must Have |
 
 ---
@@ -1016,7 +1084,12 @@ Checkout becomes instant — no mobile money OTP at the point of purchase. The f
 |----|-------------|----------|
 | F22.1 | Credit wallet created automatically for every user on signup (trigger on users INSERT) | Must Have |
 | F22.2 | Wallet screen shows: current balance (large, prominent), recent transactions, Top Up button, Payout Preference setting | Must Have |
-| F22.3 | Top-up flow: enter amount (min GMD 100) → choose method (QMoney/AfriMoney/Wave/Card) → pay via ModemPay → webhook fires → balance updates instantly | Must Have |
+| F22.3 | Top-up screen shows two paths — Wave screenshot (featured, "No platform fee") and ModemPay (instant, 1.5% fee). Wave screenshot is the recommended default. | Must Have |
+| F22.3a | Wave screenshot path (Phase 1+2): Customer sends to Tems Wave business number → uploads screenshot → OCR extracts amount/tx_id/timestamp → MoMo Reconcile manager verifies → credits added (~2h). Platform fee: GMD 0. | Must Have |
+| F22.3b | ModemPay instant path: Enter amount (min GMD 100) → choose QMoney/AfriMoney/Wave via ModemPay → pay → webhook fires → credits instant. Platform absorbs or shows 1.5% fee transparently. | Must Have |
+| F22.3c | Wave screenshot fraud protection: tx_id uniqueness (DB UNIQUE constraint prevents reuse), timestamp must be within 24h (configurable in platform_settings), recipient number must match Tems Wave business number (OCR validation). | Must Have |
+| F22.3d | Checkout shortfall always uses ModemPay instant path. Wave screenshot is only for planned top-ups, never for inline checkout shortfall (delay unacceptable at checkout). | Must Have |
+| F22.3e | Wave Business API (Phase 3): Replace screenshot path with direct Wave API integration — instant Wave payments, zero platform fee, no manager verification. Screenshot path retired when Wave API live. | Should Have |
 | F22.4 | Checkout requires credits. If balance ≥ order total: one-tap "Pay GMD X from Wallet". If balance < order total: show shortfall with flexible top-up options (see below) | Must Have |
 | F22.5 | Checkout shortfall top-up options: [Exact shortfall] (shown if shortfall >= 100) / [GMD 200] / [GMD 500] / [GMD 1,000] / [Custom amount min GMD 100]. After top-up, checkout completes automatically. | Must Have |
 | F22.6 | Credits cannot be transferred to another user. Gift cards are the gifting mechanism. | Must Have |
@@ -1033,7 +1106,9 @@ Checkout becomes instant — no mobile money OTP at the point of purchase. The f
 #### Credits Are One-Directional Store Credit
 ```
 Credits move in two directions only:
-  IN:  ModemPay top-up → credit wallet (min GMD 100)
+  IN:  ModemPay top-up (instant, 1.5% fee) → credit wallet
+  IN:  Wave screenshot top-up (verified ~2h, 0% platform fee) → credit wallet
+  IN:  Wave API direct (Phase 3, instant, 0% platform fee) → credit wallet
   IN:  Gift card redemption → credit wallet
   IN:  Commission credit (if payout preference = 'credits')
   IN:  Refund → credit wallet
@@ -1041,6 +1116,57 @@ Credits move in two directions only:
   OUT: credit wallet → gift card purchase (if buyer pays with credits)
 
 Credits cannot be transferred, withdrawn, or cashed out.
+```
+
+#### Wave Screenshot Top-Up — Verification Flow
+```
+1. Customer opens top-up screen
+   → Sees: [Pay with Wave — No platform fee ⭐] and [Instant via mobile money — 1.5% fee]
+   → Taps Wave path
+
+2. App shows Tems Wave business number + QR code
+   → "Send any amount (min GMD 100) to +220 XXX XXXX on Wave"
+   → "Then come back and upload your confirmation screenshot"
+
+3. Customer sends on Wave, returns, uploads screenshot
+   → Edge Function: upload to Supabase Storage (private bucket)
+
+4. verify-wave-screenshot Edge Function:
+   a. OCR Space API extracts raw text from screenshot
+   b. Groq structures: { amount, tx_id, sender, timestamp, recipient }
+   c. Validate recipient matches wave_business_number in platform_settings
+   d. Validate amount >= credit_min_topup_gmd (GMD 100)
+   e. Validate timestamp within screenshot_max_age_hours (24h)
+   f. Check wave_tx_id not already in credit_transactions (UNIQUE constraint)
+   g. If any validation fails: return { error, reason } — prompt user to retake
+
+5. On validation pass:
+   → INSERT credit_transactions:
+       type: 'top_up_screenshot'
+       amount_gmd: 0  (credits NOT added yet — pending verification)
+       screenshot_status: 'pending'
+       wave_tx_id: extracted tx_id
+       wave_amount_extracted: extracted amount
+       momo_reconcile_job_id: [job created in MoMo Reconcile]
+   → User sees: "Screenshot received ✅ — Credits will be added after verification (usually < 2h)"
+
+6. MoMo Reconcile manager reviews screenshot
+   → Verification webhook fires to Tems Market
+   → On 'verified':
+       UPDATE credit_transactions: screenshot_status → 'verified', verified_at = now()
+       UPDATE credit_wallets: balance += wave_amount_extracted
+       INSERT credit_transactions: type: 'top_up_screenshot', amount: +X, balance_after: new_balance
+       WhatsApp: "GMD X credits added to your Tems wallet ✅"
+   → On 'rejected':
+       UPDATE credit_transactions: screenshot_status → 'rejected', rejection_reason = reason
+       WhatsApp: "We couldn't verify your payment. {reason}. Please contact support."
+
+Fraud protection layers:
+  - UNIQUE index on wave_tx_id prevents any screenshot being used twice
+  - OCR validates recipient is Tems Market Wave number (not any other account)
+  - Timestamp check blocks screenshots older than 24h
+  - MoMo Reconcile manager sees the actual screenshot — human verification every time
+  - Rejected screenshots logged with reason for audit
 ```
 
 #### Checkout with Credits — Decision Tree
@@ -1429,7 +1555,7 @@ Home Feed → Search or browse categories
    → Customer gets prompt on mobile money app
    → Customer approves payment
    → Webhook fires → order confirmed
-   → Twilio SMS: "Payment confirmed"
+   → WhatsApp: "Payment confirmed" (Meta Cloud API)
    → Vendor WhatsApp: "New order"
 → Order Tracking screen — Supabase Realtime updates
 ```
@@ -1459,7 +1585,7 @@ Wallet screen → "Request Payout" button
 
 ### Security
 - [ ] All API keys stored in environment variables — never in client code
-- [ ] Groq, OCR Space, Twilio calls via Supabase Edge Functions only (server-side)
+- [ ] Groq, OCR Space, Meta WhatsApp, Africa's Talking calls via Supabase Edge Functions only (server-side)
 - [ ] ModemPay webhook signature verification on every webhook
 - [ ] Supabase Row Level Security (RLS) enabled on all tables
 - [ ] Each role can only read/write their own data (RLS policies enforce this)
@@ -1498,7 +1624,7 @@ Wallet screen → "Request Payout" button
 - **Gift Cards — purchasable, emailable via Resend, redeemable at checkout (full or partial cover)**
 - **Coupons / Promo Codes — fixed or % discount, superadmin/admin creates and controls**
 - **Email System via Resend — gift card delivery, order confirmations**
-- Twilio SMS + WhatsApp notifications for all key events
+- Meta WhatsApp Cloud API + Africa's Talking SMS fallback notifications for all key events
 - Order management with real-time status updates (Supabase Realtime)
 - Wallet and payout request for vendors and affiliates
 - PostHog analytics + Sentry error monitoring
@@ -1570,8 +1696,8 @@ Wallet screen → "Request Payout" button
 - [ ] Sponsored row is visible to customers and clearly labelled
 
 ### Notifications
-- [ ] All Twilio SMS events listed in Feature 11 trigger correctly
-- [ ] All Twilio WhatsApp events listed in Feature 11 trigger correctly
+- [ ] All Meta WhatsApp notification events listed in Feature 11 trigger correctly
+- [ ] Africa's Talking SMS fallback fires correctly on WhatsApp failure
 - [ ] Resend gift card email sends and renders correctly on Gmail and mobile email apps
 
 ### Monitoring
@@ -1587,7 +1713,7 @@ Wallet screen → "Request Payout" button
 **Goal:** App boots, all 5 roles can log in or be onboarded, navigation structure in place
 - [ ] Supabase project setup, schema migration, RLS policies
 - [ ] Expo app scaffolding with role-based navigation
-- [ ] Phone OTP auth via Supabase + Twilio
+- [ ] Phone OTP auth via Supabase + Meta WhatsApp Cloud API (Africa's Talking SMS fallback)
 - [ ] Invite flows (admin invite, vendor invite via deep link)
 - [ ] All environment variables configured
 - [ ] Sentry and PostHog initialized
@@ -1616,7 +1742,7 @@ Wallet screen → "Request Payout" button
 - [ ] Commission ledger and wallet screens for all roles
 - [ ] ModemPay Payouts API for affiliate and admin commission distribution
 - [ ] Order status management (vendor updates, Realtime to customer)
-- [ ] All Twilio notification events wired
+- [ ] All Meta WhatsApp + Africa's Talking notification events wired
 - [ ] All Resend email events wired
 
 ### Phase 4: Polish & Launch (Checkpoint 4)
@@ -1639,7 +1765,7 @@ Wallet screen → "Request Payout" button
 | OCR Space poor quality on low-res ID photos | Medium | High | Prompt vendor to retake photo, have admin option to manually enter ID data as fallback |
 | Affiliate links not opening app (deep link issues) | High | Medium | Test Universal Links (iOS) and App Links (Android) thoroughly; website fallback always works |
 | ModemPay single sub-account per intent limits automatic multi-split | Medium | Confirmed | Two-phase payout architecture handles this; monitor ModemPay changelog for multi sub-account release |
-| Twilio WhatsApp Business approval delay | Medium | Medium | Start WhatsApp Business API application early; SMS works as fallback for all WhatsApp events |
+| Meta WhatsApp Business Account approval delay | Medium | Medium | Apply for WhatsApp Business Account on Day 1. Africa's Talking SMS is the fallback until approved. |
 | Vendors setting prices below admin floor due to UI bug | High | Low | Server-side validation in Supabase Edge Function as second layer beyond client validation |
 | Groq API rate limits on product upload | Low | Low | Free tier is generous; implement queue with retry for bulk uploads |
 
@@ -1654,7 +1780,7 @@ Wallet screen → "Request Payout" button
 - Supabase Expo Quickstart: https://supabase.com/docs/guides/getting-started/quickstarts/expo-react-native
 - Groq Vision API: https://console.groq.com/docs/vision
 - OCR Space API: https://ocr.space/ocrapi
-- Twilio WhatsApp API: https://www.twilio.com/docs/whatsapp
+- Meta WhatsApp Cloud API: https://developers.facebook.com/docs/whatsapp/cloud-api
 - RevenueCat Expo: https://www.revenuecat.com/docs/getting-started/installation/expo
 - RevenueCat Web Billing: https://www.revenuecat.com/docs/web/web-billing/overview
 - PostHog React Native: https://posthog.com/docs/libraries/react-native
@@ -1689,7 +1815,7 @@ Wallet screen → "Request Payout" button
 **Mode:** Start in Plan Mode
 
 **Phase 1 Prompt:**
-"Review this PRD for Tems Market (a 5-role marketplace app built with Expo React Native and Supabase). Create a development plan for Phase 1: Foundation — Auth, Roles, Database. Include: Supabase schema migrations for all tables in Section 4, RLS policies from Section 8, Expo project structure, phone OTP auth with Twilio, role-based navigation, and invite deep link flows. Do not start building yet — outline your approach and flag any ambiguities."
+"Review this PRD for Tems Market (a 5-role marketplace app built with Expo React Native and Supabase). Create a development plan for Phase 1: Foundation — Auth, Roles, Database. Include: Supabase schema migrations for all tables in Section 4, RLS policies from Section 8, Expo project structure, phone OTP auth with Meta WhatsApp Cloud API + Africa's Talking SMS fallback, role-based navigation, and invite deep link flows. Do not start building yet — outline your approach and flag any ambiguities."
 
 **Build Prompt (after plan approval):**
 "Proceed with Phase 1 implementation. Create a checkpoint when all auth flows are working and the correct dashboard renders for each of the 5 roles."

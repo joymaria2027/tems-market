@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    // Authenticate
+    // ── Authenticate ──────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -28,163 +28,151 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsErr } = await anonClient.auth.getClaims(token);
-    if (claimsErr || !claimsData?.claims) {
+    const { data: { user }, error: authErr } = await anonClient.auth.getUser();
+    if (authErr || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const userId = claimsData.claims.sub as string;
 
-    const { items, couponCode, refCode } = await req.json() as {
-      items: { product_id: string; quantity: number }[];
-      couponCode?: string;
-      refCode?: string;
+    // ── Parse request ─────────────────────────────────────────────
+    const { listing_id, quantity, coupon_code, ref_code, delivery_address, payment_method } = await req.json() as {
+      listing_id: string;
+      quantity: number;
+      coupon_code?: string;
+      ref_code?: string;
+      delivery_address: string;
+      payment_method?: string;
     };
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      throw new Error("Items are required");
+    if (!listing_id || !quantity || quantity < 1 || !Number.isInteger(quantity)) {
+      throw new Error("listing_id and positive integer quantity are required");
     }
 
-    // Validate quantities
-    for (const item of items) {
-      if (!item.product_id || typeof item.quantity !== "number" || item.quantity < 1 || !Number.isInteger(item.quantity)) {
-        throw new Error("Invalid item data");
-      }
+    if (!delivery_address || delivery_address.trim().length === 0) {
+      throw new Error("delivery_address is required");
     }
 
+    // Validate payment_method against schema enum
+    const validPaymentMethods = ["qmoney", "afrimoney", "wave", "cash", "credits", "gift_card", "mixed"];
+    const resolvedPaymentMethod = payment_method && validPaymentMethods.includes(payment_method)
+      ? payment_method
+      : "cash";
+
+    // ── Service client (bypasses RLS for writes) ──────────────────
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fetch real product prices server-side
-    const productIds = items.map((i) => i.product_id);
-    const { data: products, error: prodErr } = await serviceClient
+    // ── Fetch listing + product server-side ───────────────────────
+    const { data: listing, error: listingErr } = await serviceClient
+      .from("vendor_listings")
+      .select("id, vendor_id, vendor_price, is_active, product_id")
+      .eq("id", listing_id)
+      .single();
+
+    if (listingErr || !listing) throw new Error("Listing not found");
+    if (!listing.is_active) throw new Error("Listing is not active");
+
+    const { data: product, error: prodErr } = await serviceClient
       .from("products")
-      .select("id, title, price, stock, status, vendor_id, profiles(name)")
-      .in("id", productIds)
-      .eq("status", "approved");
+      .select("id, title, status, submitted_by_vendor")
+      .eq("id", listing.product_id)
+      .single();
 
-    if (prodErr) throw new Error("Failed to fetch products");
-    if (!products || products.length !== items.length) {
-      throw new Error("One or more products not found or not approved");
-    }
+    if (prodErr || !product) throw new Error("Product not found");
+    if (product.status !== "active") throw new Error("Product is not available");
 
-    // Calculate server-side subtotal
-    let subtotal = 0;
-    const orderItemsData: { product_id: string; quantity: number; price_at_purchase: number }[] = [];
-    for (const item of items) {
-      const product = products.find((p) => p.id === item.product_id);
-      if (!product) throw new Error(`Product ${item.product_id} not found`);
-      if (item.quantity > product.stock) {
-        throw new Error(`Insufficient stock for "${product.title}"`);
-      }
-      const lineTotal = Number(product.price) * item.quantity;
-      subtotal += lineTotal;
-      orderItemsData.push({
-        product_id: item.product_id,
-        quantity: item.quantity,
-        price_at_purchase: Number(product.price),
-      });
-    }
+    // ── Calculate server-side totals ──────────────────────────────
+    const unitPrice = Number(listing.vendor_price);
+    const totalAmount = unitPrice * quantity;
 
-    // Validate coupon server-side
-    let discount = 0;
-    let couponRecord: any = null;
-    if (couponCode) {
+    // ── Validate coupon (server-side) ─────────────────────────────
+    let couponId: string | null = null;
+    let couponDiscount = 0;
+
+    if (coupon_code) {
       const { data: coupon } = await serviceClient
         .from("coupons")
-        .select("*")
-        .eq("code", couponCode)
+        .select("id, discount_type, discount_value, max_uses, uses_so_far, expires_at, minimum_order_gmd, status")
+        .eq("code", coupon_code.toUpperCase())
         .maybeSingle();
 
-      if (coupon) {
+      if (coupon && coupon.status === "active") {
         const now = new Date();
-        const notExpired = !coupon.expiry_date || new Date(coupon.expiry_date) > now;
-        const withinLimit = !coupon.usage_limit || coupon.times_used < coupon.usage_limit;
+        const notExpired = !coupon.expires_at || new Date(coupon.expires_at) > now;
+        const withinLimit = !coupon.max_uses || coupon.uses_so_far < coupon.max_uses;
+        const meetsMinimum = !coupon.minimum_order_gmd || totalAmount >= Number(coupon.minimum_order_gmd);
 
-        if (notExpired && withinLimit) {
-          couponRecord = coupon;
+        if (notExpired && withinLimit && meetsMinimum) {
+          couponId = coupon.id;
           if (coupon.discount_type === "percentage") {
-            discount = (subtotal * Number(coupon.discount_value)) / 100;
+            couponDiscount = (totalAmount * Number(coupon.discount_value)) / 100;
           } else {
-            discount = Math.min(Number(coupon.discount_value), subtotal);
+            couponDiscount = Math.min(Number(coupon.discount_value), totalAmount);
           }
         }
       }
     }
 
-    const total = Math.max(subtotal - discount, 0);
+    const discountedTotal = Math.max(totalAmount - couponDiscount, 0);
 
-    // Create order
+    // ── Resolve affiliate link ────────────────────────────────────
+    let affiliateLinkId: string | null = null;
+
+    if (ref_code) {
+      const { data: affLink } = await serviceClient
+        .from("affiliate_links")
+        .select("id")
+        .eq("short_code", ref_code)
+        .eq("listing_id", listing_id)
+        .maybeSingle();
+
+      if (affLink) {
+        affiliateLinkId = affLink.id;
+      }
+    }
+
+    // ── Create order ──────────────────────────────────────────────
     const { data: order, error: orderErr } = await serviceClient
       .from("orders")
       .insert({
-        shopper_id: userId,
-        total,
-        discount_applied: discount,
-        status: "awaiting_payment",
+        customer_id: user.id,
+        listing_id,
+        affiliate_link_id: affiliateLinkId,
+        quantity,
+        unit_price: unitPrice,
+        total_amount: totalAmount,
+        discounted_total: discountedTotal,
+        status: "placed",
+        payment_method: resolvedPaymentMethod,
+        payment_status: "pending",
+        coupon_id: couponId,
+        coupon_discount: couponDiscount > 0 ? couponDiscount : null,
+        delivery_address,
       })
-      .select("id")
+      .select("id, total_amount, discounted_total, coupon_discount, quantity, unit_price")
       .single();
 
-    if (orderErr) throw new Error("Failed to create order");
-
-    // Create order items
-    const itemsWithOrder = orderItemsData.map((oi) => ({
-      ...oi,
-      order_id: order.id,
-    }));
-    const { error: itemsErr } = await serviceClient.from("order_items").insert(itemsWithOrder);
-    if (itemsErr) throw new Error("Failed to create order items");
-
-    // Increment coupon usage
-    if (couponRecord) {
-      await serviceClient
-        .from("coupons")
-        .update({ times_used: couponRecord.times_used + 1 })
-        .eq("id", couponRecord.id);
-    }
-
-    // Handle affiliate referral
-    if (refCode) {
-      try {
-        const { data: affiliate } = await serviceClient
-          .from("affiliates")
-          .select("id, commission_rate")
-          .eq("code", refCode)
-          .maybeSingle();
-
-        if (affiliate && affiliate.id) {
-          const commission = (total * Number(affiliate.commission_rate)) / 100;
-          await serviceClient.from("affiliate_referrals").insert({
-            affiliate_id: affiliate.id,
-            order_id: order.id,
-            commission_amount: commission,
-          });
-        }
-      } catch {
-        // Non-critical
-      }
-    }
+    if (orderErr) throw new Error(`Failed to create order: ${orderErr.message}`);
 
     return new Response(
       JSON.stringify({
         orderId: order.id,
-        items: orderItemsData.map((oi) => {
-          const p = products.find((pr) => pr.id === oi.product_id);
-          return { title: p?.title || "", quantity: oi.quantity, price: oi.price_at_purchase };
-        }),
-        subtotal,
-        discount,
-        total,
-        couponCode: couponRecord?.code,
-        paymentMethod: "bank_transfer",
+        listing_id,
+        quantity: order.quantity,
+        unit_price: order.unit_price,
+        total_amount: order.total_amount,
+        discounted_total: order.discounted_total,
+        coupon_discount: order.coupon_discount || 0,
+        coupon_code: coupon_code || null,
+        affiliate_link_id: affiliateLinkId,
+        payment_status: "pending",
       }),
       {
+        status: 201,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );

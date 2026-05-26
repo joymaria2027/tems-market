@@ -34,6 +34,11 @@ interface AuthContextType {
     phone: string,
     code: string,
   ) => Promise<{ error: Error | null; session?: Session }>;
+  // Email/password sign in (for superadmin)
+  signInWithEmail: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: Error | null }>;
   // Profile update
   updateProfile: (
     updates: Partial<Profile>,
@@ -42,6 +47,11 @@ interface AuthContextType {
   updateRole: (role: "customer" | "affiliate") => Promise<void>;
   // Sign out
   signOut: () => Promise<void>;
+  // Update password
+  updatePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<{ error: Error | null }>;
   // Refresh profile
   refreshProfile: () => Promise<void>;
 }
@@ -166,6 +176,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: null, session: data.session as Session };
   };
 
+  // ─── Email/password sign in (superadmin) ────────────────────────────────────────
+
+  const signInWithEmail = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { error: error as Error | null };
+  };
+
+  // ─── Update password via Edge Function ───────────────────────────────────────────
+
+  const updatePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("update-password", {
+        body: { currentPassword, newPassword },
+      });
+
+      if (error) return { error: error as Error };
+      if (data?.error) return { error: new Error(data.error) };
+
+      return { error: null };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to update password";
+      return { error: new Error(message) };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -175,6 +213,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         loading,
         requestOTP,
         verifyOTP,
+        signInWithEmail,
+        updatePassword,
         updateProfile,
         updateRole,
         signOut,

@@ -1,27 +1,29 @@
 import { useState } from "react";
-import { Sparkles, Tag } from "lucide-react";
+import { ShieldCheck, Truck, HeartHandshake, ArrowRight, Tag } from "lucide-react";
+import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import SponsoredRow from "@/components/SponsoredRow";
 import CategoryTabs from "@/components/CategoryTabs";
 import ProductCard from "@/components/ProductCard";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import Slideshow, { type Slide } from "@/components/ui/slideshow";
 import { mockProducts } from "@/data/mockProducts";
 
 const heroSlides: Slide[] = [
   {
-    img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1600&q=80",
-    text: ["DISCOVER YOUR", "NEXT FAVORITE"],
+    img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200&q=60",
+    text: ["SHOP THE BEST OF", "THE GAMBIA"],
     link: "/shop",
   },
   {
-    img: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&q=80",
-    text: ["SHOP LOCAL", "SUPPORT INDEPENDENT"],
+    img: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&q=60",
+    text: ["TRUSTED VENDORS", "REAL PRODUCTS"],
     link: "/shop",
   },
   {
-    img: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1600&q=80",
-    text: ["HANDMADE WITH", "CARE AND PURPOSE"],
+    img: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1200&q=60",
+    text: ["START SELLING", "IN MINUTES"],
     link: "/become-a-vendor",
   },
 ];
@@ -37,43 +39,49 @@ const Index = () => {
       {/* Hero Slideshow */}
       <Slideshow slides={heroSlides} />
 
-      {/* Intro section below slideshow */}
+      {/* CTA + Value Proposition — single action, outcome-driven */}
       <section className="py-10 md:py-14 border-b border-border/50">
         <div className="container text-center max-w-3xl space-y-5">
-          <div className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-3 py-1 rounded-full">
-            <Sparkles className="h-3 w-3" />
-            The Gambia's Local Marketplace
-          </div>
           <h1 className="font-display text-2xl md:text-4xl lg:text-5xl font-extrabold text-foreground leading-tight">
-            Discover unique finds from{" "}
-            <span className="text-gradient">independent vendors</span>
+            Shop local products from{" "}
+            <span className="text-gradient">trusted Gambian vendors</span>
           </h1>
           <p className="text-muted-foreground text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
-            Shop handpicked products from trusted sellers across The Gambia, all
-            in one place.
+            Fashion, electronics, and home goods — verified sellers, fair prices, delivered across The Gambia.
           </p>
 
-          {/* Quick stats */}
-          <div className="flex items-center justify-center gap-6 md:gap-10 pt-2">
-            <div className="text-center">
-              <p className="font-display text-xl md:text-2xl font-bold text-foreground">
-                {mockProducts.length}
-              </p>
-              <p className="text-[11px] text-muted-foreground">Products</p>
+          {/* Single CTA — what they get + how */}
+          <div className="pt-2">
+            <Button asChild size="lg" className="h-12 px-8 font-semibold gap-2">
+              <Link to="/shop">
+                Browse {mockProducts.length}+ Products
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+
+          {/* 3 objection-handling bullets — most common to least common */}
+          <div className="grid sm:grid-cols-3 gap-4 pt-6 max-w-2xl mx-auto">
+            <div className="flex items-center gap-3 text-left p-3 rounded-lg bg-secondary/30">
+              <ShieldCheck className="h-5 w-5 text-primary shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Verified Vendors</p>
+                <p className="text-xs text-muted-foreground">Every seller is ID-verified</p>
+              </div>
             </div>
-            <div className="w-px h-8 bg-border" />
-            <div className="text-center">
-              <p className="font-display text-xl md:text-2xl font-bold text-foreground">
-                {new Set(mockProducts.map((p) => p.vendor)).size}
-              </p>
-              <p className="text-[11px] text-muted-foreground">Vendors</p>
+            <div className="flex items-center gap-3 text-left p-3 rounded-lg bg-secondary/30">
+              <Truck className="h-5 w-5 text-primary shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Local Delivery</p>
+                <p className="text-xs text-muted-foreground">Across The Gambia</p>
+              </div>
             </div>
-            <div className="w-px h-8 bg-border" />
-            <div className="text-center">
-              <p className="font-display text-xl md:text-2xl font-bold text-foreground">
-                {new Set(mockProducts.map((p) => p.category)).size}
-              </p>
-              <p className="text-[11px] text-muted-foreground">Categories</p>
+            <div className="flex items-center gap-3 text-left p-3 rounded-lg bg-secondary/30">
+              <HeartHandshake className="h-5 w-5 text-primary shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Support Local</p>
+                <p className="text-xs text-muted-foreground">Every purchase helps a Gambian business</p>
+              </div>
             </div>
           </div>
         </div>
