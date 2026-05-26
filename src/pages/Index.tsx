@@ -5,7 +5,23 @@ import SponsoredRow from "@/components/SponsoredRow";
 import CategoryTabs from "@/components/CategoryTabs";
 import ProductCard from "@/components/ProductCard";
 import { Badge } from "@/components/ui/badge";
+import Slideshow, { type Slide } from "@/components/ui/slideshow";
 import { mockProducts } from "@/data/mockProducts";
+
+const heroSlides: Slide[] = [
+  {
+    img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1600&q=80",
+    text: ["DISCOVER YOUR", "NEXT FAVORITE"],
+  },
+  {
+    img: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&q=80",
+    text: ["SHOP LOCAL", "SUPPORT INDEPENDENT"],
+  },
+  {
+    img: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1600&q=80",
+    text: ["HANDMADE WITH", "CARE AND PURPOSE"],
+  },
+];
 
 const Index = () => {
   const [category, setCategory] = useState("All");
@@ -15,18 +31,21 @@ const Index = () => {
 
   return (
     <Layout>
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-primary/[0.07] via-background to-background py-12 md:py-20">
+      {/* Hero Slideshow */}
+      <Slideshow slides={heroSlides} />
+
+      {/* Intro section below slideshow */}
+      <section className="py-10 md:py-14 border-b border-border/50">
         <div className="container text-center max-w-3xl space-y-5">
           <div className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-3 py-1 rounded-full">
             <Sparkles className="h-3 w-3" />
             The Gambia's Local Marketplace
           </div>
-          <h1 className="font-display text-3xl md:text-5xl lg:text-6xl font-extrabold text-foreground leading-tight">
+          <h1 className="font-display text-2xl md:text-4xl lg:text-5xl font-extrabold text-foreground leading-tight">
             Discover unique finds from{" "}
             <span className="text-gradient">independent vendors</span>
           </h1>
-          <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
+          <p className="text-muted-foreground text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
             Shop handpicked products from trusted sellers across The Gambia, all
             in one place.
           </p>
