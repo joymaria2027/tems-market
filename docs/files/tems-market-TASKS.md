@@ -30,7 +30,7 @@ LAYER 1 — Database (everything reads/writes here)
   └── Supabase types auto-generated → types/supabase.ts
 
 LAYER 2 — Auth (every screen requires an authenticated user with a role)
-  └── Phone OTP login (Supabase Auth + Twilio Edge Function)
+  └── Phone OTP login (Supabase Auth + Meta WhatsApp Cloud API Edge Function)
   └── Role detection on login → correct navigator mounted
   └── Superadmin password + OTP
   └── Invite deep link handler (admin + vendor)
@@ -81,7 +81,7 @@ LAYER 5 — Transactions (requires listings to exist)
 LAYER 6 — Polish & Launch (requires all features working)
   └── RevenueCat vendor subscription
   └── PostHog event tracking across all key flows
-  └── All Twilio + Resend notification events wired
+  └── All Meta WhatsApp + Resend notification events wired
   └── Error handling + loading states on all async operations
   └── Marketing website (Next.js) with /p/[code] affiliate landing pages
   └── Performance audit
@@ -100,7 +100,7 @@ LAYER 6 — Polish & Launch (requires all features working)
 | Groq + OCR Edge Functions | Parallel | Independent Edge Functions |
 | Vendor onboarding + Superadmin product upload | Parallel | Both use Groq but don't depend on each other |
 | Gift cards + Coupons + Sponsored listings | Parallel | All depend on checkout but not on each other |
-| Twilio + Resend notifications | Parallel | Independent notification channels |
+| Meta WhatsApp + Africa's Talking + Resend | Parallel | Independent notification channels |
 | PostHog + Sentry | Parallel | Both are observability, no dependency between them |
 
 ### Risk Register
@@ -111,7 +111,7 @@ LAYER 6 — Polish & Launch (requires all features working)
 | Groq vision returns malformed JSON | Wrap parse in try/catch, fallback to empty form; add `JSON.parse` safety via regex strip of markdown fences | T2.3 |
 | OCR Space returns garbled text on poor photos | Prompt vendor to retake; admin has "Enter manually" fallback path | T2.7 |
 | Deep link not opening app on Android | Test App Links verification file (`/.well-known/assetlinks.json`) on website early | T3.6 |
-| Twilio WhatsApp approval delay (1-2 weeks) | Apply for WhatsApp Business API on Day 1; all events have SMS fallback | T1.5 |
+| Meta WhatsApp approval delay (1-2 weeks) | Apply for WhatsApp Business API on Day 1; all events have SMS fallback | T1.5 |
 | RLS policy gap exposes data | Write integration test for each role attempting cross-role read — runs in CI | T1.8 |
 | Gift card code collision | Use `nanoid` with 16-char alphanumeric; probability negligible but add DB unique constraint | T3.9 |
 | Affiliate short_code collision | Same — unique constraint on `affiliate_links.short_code` + retry on conflict | T3.6 |
@@ -207,8 +207,8 @@ LAYER 6 — Polish & Launch (requires all features working)
   - **Verify:** Manual test in a temporary screen
   - **Files:** `lib/supabase/client.ts`
 
-- [ ] **T1.7: Build send-otp Edge Function (Twilio)**
-  - **What:** Create `supabase/functions/send-otp/index.ts`. Accepts `{ phone }`. Validates phone, calls Twilio Verify API to send 6-digit OTP SMS. Rate limited: max 3 per phone per 10 minutes (track in a temp table or Supabase rate-limit pattern).
+- [ ] **T1.7: Build send-otp Edge Function (Meta WhatsApp Cloud API + Africa's Talking fallback)**
+  - **What:** Create `supabase/functions/send-otp/index.ts`. Accepts `{ phone }`. Validates phone, calls Meta WhatsApp authentication template to send 6-digit OTP SMS. Rate limited: max 3 per phone per 10 minutes (track in a temp table or Supabase rate-limit pattern).
   - **Acceptance:** POST to `/functions/v1/send-otp` with a real phone number delivers an SMS within 30 seconds.
   - **Verify:** Manual test with a real phone number on local functions serve + ngrok
   - **Files:** `supabase/functions/send-otp/index.ts`
@@ -232,13 +232,13 @@ LAYER 6 — Polish & Launch (requires all features working)
   - **Files:** `app/_layout.tsx`, `app/index.tsx`, `hooks/useAuth.ts`
 
 - [ ] **T1.10: Build Superadmin login (password + OTP)**
-  - **What:** Superadmin email + password login screen (not role-select path). After password auth, Twilio OTP sent as 2FA. Both must succeed to reach superadmin dashboard.
+  - **What:** Superadmin email + password login screen (not role-select path). After password auth, WhatsApp OTP sent as 2FA. Both must succeed to reach superadmin dashboard.
   - **Acceptance:** Superadmin can log in with correct email + password + OTP and reaches the superadmin tab bar. Wrong password shows error. Wrong OTP shows error.
   - **Verify:** Manual test with superadmin credentials
   - **Files:** `app/(auth)/login.tsx` (extend with superadmin path), `supabase/functions/send-otp/index.ts` (extend for 2FA flow)
 
 - [ ] **T1.11: Build invite-user Edge Function**
-  - **What:** `supabase/functions/invite-user/index.ts`. Accepts `{ phone, role: 'admin' | 'vendor', invitedBy }`. Creates user record with status = 'pending' and role. Generates a signed invite token (stored in Supabase, expires in 48h). Sends Twilio SMS with deep link: `temsmarket://invite/{token}` or `https://temsmarket.app/invite/{token}`.
+  - **What:** `supabase/functions/invite-user/index.ts`. Accepts `{ phone, role: 'admin' | 'vendor', invitedBy }`. Creates user record with status = 'pending' and role. Generates a signed invite token (stored in Supabase, expires in 48h). Sends Meta WhatsApp / Africa's Talking SMS with deep link: `temsmarket://invite/{token}` or `https://temsmarket.app/invite/{token}`.
   - **Acceptance:** Calling the function with a phone number sends an SMS with a working deep link within 30 seconds.
   - **Verify:** Manual call via Supabase Studio → check SMS on test phone
   - **Files:** `supabase/functions/invite-user/index.ts`
@@ -341,8 +341,8 @@ Pass: Invite SMS delivers and deep link opens app
   - **Files:** `app/(admin)/vendors/queue.tsx`, `app/(admin)/vendors/[id].tsx`
 
 - [ ] **T2.10: Build create-sub-account Edge Function + approval flow**
-  - **What:** `supabase/functions/create-sub-account/index.ts`. Called by admin when approving a vendor. Calls ModemPay sub-account creation API with `{ business_name, percentage, settlement_code, account_number }`. Stores returned sub-account ID in `vendor_profiles.modempay_subaccount_id`. Updates `users.status = 'active'`. Sends Twilio WhatsApp to vendor: "Your account is approved!"
-    - If rejected: updates status to 'rejected', sends Twilio SMS with reason.
+  - **What:** `supabase/functions/create-sub-account/index.ts`. Called by admin when approving a vendor. Calls ModemPay sub-account creation API with `{ business_name, percentage, settlement_code, account_number }`. Stores returned sub-account ID in `vendor_profiles.modempay_subaccount_id`. Updates `users.status = 'active'`. Sends Meta WhatsApp to vendor: "Your account is approved!"
+    - If rejected: updates status to 'rejected', sends Meta WhatsApp / Africa's Talking SMS with reason.
   - **Acceptance:** Approving a vendor in the admin UI calls ModemPay, stores sub-account ID, vendor transitions from pending screen to their dashboard automatically (via Realtime from T2.8). WhatsApp message delivered.
   - **Verify:** Full flow: vendor pending → admin approves → vendor dashboard loads. Check modempay_subaccount_id in Studio.
   - **Files:** `supabase/functions/create-sub-account/index.ts`, `app/(admin)/vendors/[id].tsx` (wire approval/rejection buttons)
@@ -424,8 +424,8 @@ Pass: Vendor price enforcement works server-side (integration test)
       - admin_margin = admin_price - base_price
       - platform_fee = total_amount × platform_fee_rate
     - Step 7: Create commission_ledger entries for: vendor (net), affiliate (if applicable), admin, platform.
-    - Step 8: Send Twilio WhatsApp to vendor: "New order!"
-    - Step 9: Send Twilio SMS confirmation to customer.
+    - Step 8: Send Meta WhatsApp to vendor: "New order!"
+    - Step 9: Send Meta WhatsApp / Africa's Talking SMS confirmation to customer.
     - Return 200.
   - **Acceptance:** Full webhook test in ModemPay sandbox triggers all 9 steps correctly. commission_ledger has correct entries. gift_card and coupon records updated. Both notifications sent.
   - **Verify:** `bunx jest __tests__/lib/webhooks.test.ts`. Manual sandbox test with ngrok.
@@ -450,8 +450,8 @@ Pass: Vendor price enforcement works server-side (integration test)
 
 - [ ] **T3.8: Build order status screens and Supabase Realtime**
   - **What:** `app/(customer)/orders/[id].tsx` — order tracking screen. Subscribes to `orders` table via Supabase Realtime on `id = order.id`. Shows status timeline: Placed → Confirmed → Preparing → Ready → Delivered. Auto-updates when vendor changes status.
-    - `app/(vendor)/orders/index.tsx` + `[id].tsx` — vendor sees incoming orders. Can tap to update status. Each status update fires a Twilio WhatsApp to the customer.
-    - `supabase/functions/update-order-status/index.ts` — validates role is vendor for this order, updates status, triggers Twilio WhatsApp.
+    - `app/(vendor)/orders/index.tsx` + `[id].tsx` — vendor sees incoming orders. Can tap to update status. Each status update fires a Meta WhatsApp to the customer.
+    - `supabase/functions/update-order-status/index.ts` — validates role is vendor for this order, updates status, triggers Meta WhatsApp.
   - **Acceptance:** Vendor updates order to "Preparing" → customer tracking screen updates within 3 seconds without refresh. Customer receives WhatsApp notification.
   - **Verify:** Open customer order screen, update status as vendor in another simulator window — see update propagate.
   - **Files:** `app/(customer)/orders/[id].tsx`, `app/(vendor)/orders/index.tsx`, `app/(vendor)/orders/[id].tsx`, `supabase/functions/update-order-status/index.ts`, `hooks/useOrder.ts`
@@ -502,10 +502,10 @@ Pass: E2E: bunx maestro test e2e/affiliate-share.yaml passes
 
 ## Milestone 4 — Polish & Launch (Checkpoint 4)
 
-- [ ] **T4.1: Wire all Twilio notification events**
-  - **What:** Audit all events listed in PRD Feature 11 (Notification Event Map). Confirm every event has a corresponding Twilio call in the correct Edge Function. Add any missing ones.
-  - **Acceptance:** Every row in the PRD notification table is implemented and tested with a real Twilio test number.
-  - **Verify:** Manual trigger each event, check Twilio logs
+- [ ] **T4.1: Wire all WhatsApp notification events**
+  - **What:** Audit all events listed in PRD Feature 11 (Notification Event Map). Confirm every event has a corresponding Meta WhatsApp Cloud API call in the correct Edge Function. Add any missing ones.
+  - **Acceptance:** Every row in the PRD notification table is implemented and tested with a real WhatsApp number + Africa's Talking test number.
+  - **Verify:** Manual trigger each event, check Meta WhatsApp Cloud API logs + Africa's Talking logs
   - **Files:** Various Edge Functions (audit + patch)
 
 - [ ] **T4.2: Build RevenueCat vendor subscription**
@@ -561,7 +561,7 @@ Pass: E2E: bunx maestro test e2e/affiliate-share.yaml passes
 Run:  bunx tsc --noEmit && bunx jest --coverage
 Run:  eas build --platform all
 Pass: All PostHog events firing correctly
-Pass: All Twilio events firing correctly
+Pass: All Meta WhatsApp events firing correctly
 Pass: Cold start < 3s (Sentry performance)
 Pass: No API keys in compiled binary
 Pass: App Store + Play Store builds submitted

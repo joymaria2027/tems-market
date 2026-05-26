@@ -67,14 +67,14 @@ Build these screens in app/(auth)/:
 - register.tsx — full name input, password (min 8 chars), confirm password
 
 Auth flow:
-1. User enters phone → app calls send-otp Supabase Edge Function → Twilio SMS
+1. User enters phone → app calls send-otp Supabase Edge Function → Africa's Talking SMS
 2. User enters OTP → verify via Supabase Auth (phone OTP)
 3. New user → register.tsx → save full_name and role to public.users
 4. Existing user → skip register, go directly to role navigator
 
 ### Step 4: Superadmin login (separate path)
 On welcome.tsx, add a small "Admin Login" text link at the bottom.
-Superadmin login: email + password (Supabase email auth), then Twilio OTP as 2FA.
+Superadmin login: email + password (Supabase email auth), then Meta WhatsApp Cloud API OTP as 2FA.
 Both must succeed to reach superadmin dashboard.
 
 ### Step 5: Invite deep link handler
@@ -142,30 +142,155 @@ constants/colors.ts (design tokens)
 constants/config.ts (MIN_PAYOUT_GMD = 10, etc.)
 
 ## Supabase Edge Functions to create
-supabase/functions/send-otp/index.ts:
+
+### Notification helper (used by all functions below)
+Create lib/whatsapp.ts in the functions shared folder:
+```typescript
+// Shared helper — call from any Edge Function
+// Sends WhatsApp message via Meta Cloud API
+// Falls back to Africa's Talking SMS if WhatsApp fails
+
+const GRAPH_URL = 'https://graph.facebook.com/v23.0'
+
+export async function sendWhatsApp(to: string, body: string): Promise<boolean> {
+  // Try Meta WhatsApp Cloud API first (within 24h window = free, else utility rate)
+  try {
+    const res = await fetch(
+      `${GRAPH_URL}/${Deno.env.get('META_WHATSAPP_PHONE_NUMBER_ID')}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('META_WHATSAPP_ACCESS_TOKEN')}`,
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to,           // E.164 format e.g. +2207123456
+          type: 'text',
+          text: { body }
+        })
+      }
+    )
+    if (res.ok) return true
+  } catch (_) {}
+
+  // Fallback: Africa's Talking SMS
+  return sendSMS(to, body)
+}
+
+export async function sendOTPWhatsApp(to: string, code: string): Promise<boolean> {
+  // Authentication template — pre-approved by Meta
+  // Template name: 'tems_market_otp' (create this in Meta Business Manager)
+  try {
+    const res = await fetch(
+      `${GRAPH_URL}/${Deno.env.get('META_WHATSAPP_PHONE_NUMBER_ID')}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('META_WHATSAPP_ACCESS_TOKEN')}`,
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to,
+          type: 'template',
+          template: {
+            name: 'tems_market_otp',
+            language: { code: 'en' },
+            components: [{
+              type: 'body',
+              parameters: [{ type: 'text', text: code }]
+            }, {
+              type: 'button',
+              sub_type: 'url',
+              index: '0',
+              parameters: [{ type: 'text', text: code }]
+            }]
+          }
+        })
+      }
+    )
+    if (res.ok) return true
+  } catch (_) {}
+
+  // Fallback to Africa's Talking SMS
+  return sendSMS(to, `Your Tems Market code is ${code}. Expires in 5 minutes. Do not share this code.`)
+}
+
+async function sendSMS(to: string, body: string): Promise<boolean> {
+  try {
+    const res = await fetch('https://api.africastalking.com/version1/messaging', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'apiKey': Deno.env.get('AFRICA_TALKING_API_KEY')!,
+        'Accept': 'application/json',
+      },
+      body: new URLSearchParams({
+        username: Deno.env.get('AFRICA_TALKING_USERNAME')!,
+        to,
+        message: body,
+      })
+    })
+    return res.ok
+  } catch (_) {
+    return false
+  }
+}
+```
+
+### supabase/functions/send-otp/index.ts
 - Accepts { phone: string }
 - Requires no auth (public endpoint)
-- Rate limit: max 3 OTP requests per phone per 10 minutes
-- Calls Twilio Verify API to send 6-digit SMS
+- Rate limit: max 3 OTP requests per phone per 10 minutes (track in Supabase)
+- Generates cryptographically random 6-digit code
+- Stores hashed code in Supabase with 5-minute expiry
+- Calls sendOTPWhatsApp(phone, code) — WhatsApp first, Africa's Talking SMS fallback
 - Returns { success: true } or { error: string }
 
-supabase/functions/invite-user/index.ts:
+### supabase/functions/verify-otp/index.ts
+- Accepts { phone: string, code: string }
+- Fetches stored OTP hash for this phone
+- Validates not expired, not already used
+- If valid: marks used, returns Supabase auth session
+- Returns { success: true, session } or { error: 'invalid' | 'expired' }
+
+### supabase/functions/invite-user/index.ts
 - Accepts { phone: string, role: 'admin' | 'vendor', invitedBy: string }
 - Requires superadmin or admin auth
 - Creates user record in public.users with status = 'pending'
 - Creates invite_tokens record (expires 48h)
-- Sends Twilio SMS: "You've been invited to Tems Market. Tap to set up: https://temsmarket.app/invite/{token}"
+- Calls sendWhatsApp(phone, message):
+  Admin: "You've been added as a Tems Market Admin. Tap to set up your account: https://temsmarket.app/invite/{token}"
+  Vendor: "You've been invited to sell on Tems Market. Tap to register: https://temsmarket.app/invite/{token}"
 - Returns { success: true, userId: string }
 
 ## Environment variables needed
 SUPABASE_URL
 SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
-TWILIO_ACCOUNT_SID
-TWILIO_AUTH_TOKEN
-TWILIO_PHONE_NUMBER
+META_WHATSAPP_ACCESS_TOKEN
+META_WHATSAPP_PHONE_NUMBER_ID
+META_WHATSAPP_BUSINESS_ACCOUNT_ID
+META_WHATSAPP_WEBHOOK_VERIFY_TOKEN
+AFRICA_TAKING_API_KEY
+AFRICA_TALKING_USERNAME
 POSTHOG_API_KEY
 SENTRY_DSN
+OCR_SPACE_API_KEY
+GROQ_API_KEY
+MODEMPAY_SECRET_KEY
+MODEMPAY_PUBLIC_KEY
+MODEMPAY_WEBHOOK_SECRET
+MOMO_RECONCILE_API_URL
+MOMO_RECONCILE_API_KEY
+MOMO_RECONCILE_WEBHOOK_SECRET
+RESEND_API_KEY
+REVENUECAT_API_KEY_IOS
+REVENUECAT_API_KEY_ANDROID
+# Phase 3 only — add when Wave Business API integration begins:
+# WAVE_BUSINESS_API_KEY
 
 ## Checkpoint 1 — stop here and verify before proceeding
 - [ ] bunx tsc --noEmit passes with zero errors
@@ -310,10 +435,10 @@ supabase/functions/approve-vendor/index.ts:
   2. Call ModemPay sub-account creation API
   3. Store modempay_subaccount_id in vendor_profiles
   4. Update users.status = 'active' and approved_at = now(), approved_by = current user id
-  5. Send Twilio WhatsApp to vendor phone: "✅ Your Tems Market vendor account is approved! Open the app to start listing products."
+  5. Send Meta WhatsApp to vendor phone: "✅ Your Tems Market vendor account is approved! Open the app to start listing products."
 - If approve = false:
   1. Update users.status = 'rejected'
-  2. Send Twilio SMS to vendor phone: "Your Tems Market application was not approved. Reason: {reason}. Contact support if you have questions."
+  2. Send Africa's Talking SMS to vendor phone: "Your Tems Market application was not approved. Reason: {reason}. Contact support if you have questions."
 
 Wire the approve/reject buttons in app/(admin)/vendors/[id].tsx to call this Edge Function.
 
@@ -397,7 +522,7 @@ app/(superadmin)/promos/ (extend) and app/(admin)/vendors/ (extend):
 Add "Requests" tab showing customer_requests ordered by created_at DESC.
 Each row: description, category, budget, days since submitted, status badge.
 Admin taps request → detail screen with "Mark Fulfilled" button (enter product_id) and "Add Note" option.
-On fulfil: update status = 'fulfilled', set fulfilled_by = product_id, send Twilio WhatsApp to customer: "Good news! What you requested is now available on Tems Market. Check it out!"
+On fulfil: update status = 'fulfilled', set fulfilled_by = product_id, send Meta WhatsApp to customer: "Good news! What you requested is now available on Tems Market. Check it out!"
 Fire PostHog: request_fulfilled { requestId, productId }
 
 ## Checkpoint 2 — stop here and verify
@@ -529,14 +654,14 @@ This is the most critical function. Follow this sequence exactly:
       -- IMPORTANT: status stays 'pending' until vendor marks order as 'delivered'
       -- On order status = 'delivered': update all ledger entries for this order to status = 'available'
       -- This mirrors how Amazon, ClickBank, and all major platforms hold commissions until fulfilment
-   h. Send Twilio WhatsApp to vendor: "🛒 New order! {customer_name} ordered {product_title} ×{quantity}. Check your app."
-   i. Send Twilio SMS to customer: "✅ Payment of GMD {amount} confirmed for Tems Market order #{short_order_id}."
+   h. Send Meta WhatsApp to vendor: "🛒 New order! {customer_name} ordered {product_title} ×{quantity}. Check your app."
+   i. Send Africa's Talking SMS to customer: "✅ Payment of GMD {amount} confirmed for Tems Market order #{short_order_id}."
 5. Return 200.
 
 Also create supabase/functions/release-commissions/index.ts:
 - Called by update-order-status Edge Function when new status = 'delivered'
 - UPDATE commission_ledger SET status = 'available' WHERE order_id = $orderId AND status = 'pending'
-- Send Twilio WhatsApp to each earning party:
+- Send Meta WhatsApp to each earning party:
   - Vendor: "💰 Your earnings of GMD {amount} are now available to withdraw."
   - Admin: "💰 Your earnings of GMD {amount} are now available to withdraw."
   - Affiliate (if any): "💰 Your commission of GMD {amount} is now available to withdraw."
@@ -589,7 +714,7 @@ app/(vendor)/orders/[id].tsx:
   - Requires vendor auth
   - Validates this order belongs to vendor's listing
   - Updates order status
-  - Sends Twilio WhatsApp to customer based on new status
+  - Sends Meta WhatsApp to customer based on new status
 
 ### Step 7: Wallet and payout screens
 hooks/useWallet.ts:
@@ -609,7 +734,7 @@ supabase/functions/payout-commission/index.ts:
 - If sum < 10: return { error: 'minimum_not_met', minimum: 10 }
 - Call ModemPay Payouts API with amount and wallet details
 - On success: update all pending commission_ledger entries to status='paid', set modempay_payout_id and paid_at
-- Send Twilio WhatsApp: "💸 GMD {amount} has been sent to your {provider} account {number}."
+- Send Meta WhatsApp: "💸 GMD {amount} has been sent to your {provider} account {number}."
 - Return { success: true, amount }
 
 ### Step 8: Gift card purchase flow
@@ -647,7 +772,53 @@ supabase/functions/expire-featured/index.ts:
 - Scheduled Edge Function (cron: every hour, configure in supabase/config.toml)
 - UPDATE featured_listings SET status = 'expired' WHERE ends_at < NOW() AND status = 'active'
 
-### Step 11: AI chat search — Groq-powered product discovery
+### Step 11: Wave screenshot top-up flow
+supabase/functions/verify-wave-screenshot/index.ts:
+- Requires customer auth
+- Accepts { screenshotBase64, mimeType, claimedAmountGmd }
+- Step 1: Upload screenshot to Supabase Storage private bucket (path: screenshots/{user_id}/{timestamp})
+- Step 2: Call OCR Space API to extract raw text
+  - If OCR returns < 30 chars: return { error: 'poor_quality', message: 'Screenshot unclear — please retake' }
+- Step 3: Call Groq to structure OCR text:
+  Prompt: "Extract from this Wave payment screenshot: { amount_gmd, tx_id, sender, recipient_number, timestamp_iso }. Return ONLY valid JSON."
+- Step 4: Validate all three fraud checks:
+  a. recipient_number matches platform_settings.wave_business_number → else { error: 'wrong_recipient' }
+  b. amount_gmd >= platform_settings.credit_min_topup_gmd → else { error: 'below_minimum' }
+  c. timestamp within platform_settings.screenshot_max_age_hours → else { error: 'screenshot_too_old' }
+  d. wave_tx_id not in credit_transactions (UNIQUE constraint check) → else { error: 'already_used' }
+- Step 5: On all validations pass:
+  INSERT credit_transactions: type='top_up_screenshot', amount_gmd=0 (pending), screenshot_status='pending', wave_tx_id, wave_amount_extracted, screenshot_url
+  Create MoMo Reconcile job with screenshot_url as proof, amount, user details
+  Return { success: true, message: 'Screenshot received. Credits will be added after verification (~2h).' }
+
+supabase/functions/momo-reconcile-webhook/index.ts (extend existing):
+- Add handler for screenshot verification events:
+  IF event.type === 'screenshot_verified':
+    UPDATE credit_transactions: screenshot_status → 'verified', verified_at = now()
+    UPDATE credit_wallets: balance += wave_amount_extracted
+    INSERT credit_transactions: type='top_up_screenshot', amount_gmd=+wave_amount_extracted, balance_after=new_balance
+    Send WhatsApp: "GMD {amount} credits added to your Tems wallet ✅"
+  IF event.type === 'screenshot_rejected':
+    UPDATE credit_transactions: screenshot_status → 'rejected', rejection_reason = reason
+    Send WhatsApp: "We couldn't verify your payment. {reason}. Please contact support."
+
+Top-up screen UI — app/(customer)/checkout/ (new screen: topup.tsx):
+Two clear paths, Wave featured:
+
+  [⭐ Pay with Wave — No platform fee]
+    Send to: +220 XXX XXXX
+    [Copy number]  [Show QR code]
+    Amount: [input, min GMD 100]
+    [I've sent — Upload my screenshot]
+
+  [Pay instantly — 1.5% fee]
+    [QMoney] [AfriMoney] [Wave via app] [Card]
+    → ModemPay flow
+
+Note: Checkout shortfall inline top-up ALWAYS uses ModemPay instant path.
+      Wave screenshot only available from wallet top-up screen (not at checkout).
+
+### Step 12: AI chat search — Groq-powered product discovery
 supabase/functions/ai-product-search/index.ts:
 - Requires auth
 - Accepts { query: string }
@@ -740,8 +911,8 @@ app/(customer)/checkout/failed.tsx:
 ```
 Checkpoint 3 complete. Final polish and launch preparation.
 
-### Step 1: All Twilio notifications audit
-Verify every event in this list fires correctly. Add any missing Twilio calls:
+### Step 1: All Meta WhatsApp Cloud API notifications audit
+Verify every event in this list fires correctly. Add any missing Meta WhatsApp Cloud API calls:
 - OTP login (SMS) ✓ (from Phase 1)
 - Admin invite (SMS) ✓
 - Vendor invite (SMS) ✓
@@ -757,7 +928,7 @@ Verify every event in this list fires correctly. Add any missing Twilio calls:
 - Payout success (WhatsApp)
 - Payout failed (SMS)
 
-For any event with no WhatsApp implementation yet, add a Twilio WhatsApp call in the relevant Edge Function. Use Twilio's sandbox for testing if WhatsApp Business API not yet approved.
+For any event with no WhatsApp implementation yet, add a Meta WhatsApp call in the relevant Edge Function. Use Meta WhatsApp Cloud API's sandbox for testing if WhatsApp Business API not yet approved.
 
 ### Step 2: RevenueCat vendor subscription
 Install react-native-purchases.
@@ -832,7 +1003,7 @@ Fix any build errors.
 ## Checkpoint 4 — LAUNCH READY
 - [ ] bunx tsc --noEmit passes
 - [ ] bunx jest --coverage — all thresholds met
-- [ ] All 14 Twilio events verified
+- [ ] All 14 Meta WhatsApp Cloud API events verified
 - [ ] RevenueCat subscription flow works in App Store sandbox
 - [ ] Next.js website builds: bun build in website/
 - [ ] All PostHog events verified in dashboard
@@ -877,4 +1048,4 @@ Before pasting the Phase 3 prompt, confirm these values so they can be hardcoded
 | 4 | Vendor monthly subscription price (GMD or USD for App Store)? | RevenueCat configuration |
 | 5 | Gift card expiry: how many months from purchase? | gift card creation logic |
 | 6 | Can one account be both Customer and Affiliate? (current spec: separate roles) | role-select screen, navigation logic |
-| 7 | Has Twilio WhatsApp Business API application been started? | Phase 1 notification testing |
+| 7 | Has Meta WhatsApp Business API application been started? | Phase 1 notification testing |

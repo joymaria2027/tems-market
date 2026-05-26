@@ -1,9 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export type Slide = {
   img: string;
   text: string[];
+  /** Optional route or external URL to navigate to on click */
+  link?: string;
 };
 
 const defaultSlides: Slide[] = [
@@ -32,15 +35,23 @@ const defaultSlides: Slide[] = [
 interface SlideshowProps {
   slides?: Slide[];
   autoPlayInterval?: number;
+  /** Speed of the parallax scroll effect. 0 = none, 0.2 = subtle (default). */
+  parallaxSpeed?: number;
   className?: string;
 }
 
 export default function Slideshow({
   slides = defaultSlides,
   autoPlayInterval = 6000,
+  parallaxSpeed = 0.2,
   className = "",
 }: SlideshowProps) {
   const [current, setCurrent] = useState(0);
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isPausedRef = useRef(false);
+  const rAFId = useRef<number | null>(null);
+  const navigate = useNavigate();
 
   const nextSlide = useCallback(
     () => setCurrent((prev) => (prev + 1) % slides.length),
@@ -51,13 +62,41 @@ export default function Slideshow({
     [slides.length],
   );
 
-  // Auto-advance
+  // --- Parallax scroll effect ---
   useEffect(() => {
-    const timer = setInterval(nextSlide, autoPlayInterval);
+    const el = containerRef.current;
+    if (!el || parallaxSpeed === 0) return;
+
+    const handleScroll = () => {
+      if (rAFId.current !== null) return;
+      rAFId.current = requestAnimationFrame(() => {
+        const rect = el!.getBoundingClientRect();
+        setScrollOffset(rect.top * parallaxSpeed);
+        rAFId.current = null;
+      });
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      if (rAFId.current !== null) {
+        cancelAnimationFrame(rAFId.current);
+      }
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [parallaxSpeed]);
+
+  // --- Auto-advance with pause-on-hover ---
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!isPausedRef.current) {
+        nextSlide();
+      }
+    }, autoPlayInterval);
     return () => clearInterval(timer);
   }, [nextSlide, autoPlayInterval]);
 
-  // Keyboard navigation
+  // --- Keyboard navigation ---
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") prevSlide();
@@ -67,27 +106,63 @@ export default function Slideshow({
     return () => window.removeEventListener("keydown", handleKey);
   }, [nextSlide, prevSlide]);
 
+  const handleSlideClick = (link?: string) => {
+    if (!link) return;
+    if (link.startsWith("http")) {
+      window.open(link, "_blank", "noopener,noreferrer");
+    } else {
+      navigate(link);
+    }
+  };
+
+  const handleSlideKeyDown = (e: React.KeyboardEvent, link?: string) => {
+    if (!link) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleSlideClick(link);
+    }
+  };
+
+  // Guard against empty slides array
+  if (slides.length === 0) {
+    return (
+      <div
+        className={`relative w-full h-[70vh] md:h-[85vh] lg:h-screen bg-black ${className}`}
+      />
+    );
+  }
+
   return (
     <div
+      ref={containerRef}
       className={`relative w-full h-[70vh] md:h-[85vh] lg:h-screen overflow-hidden bg-black ${className}`}
       role="region"
       aria-label="Image slideshow"
       aria-roledescription="carousel"
+      onMouseEnter={() => { isPausedRef.current = true; }}
+      onMouseLeave={() => { isPausedRef.current = false; }}
     >
       {/* Slides */}
       {slides.map((slide, i) => (
         <div
           key={i}
           className={`
-            absolute inset-0 bg-cover bg-center
+            absolute inset-0 bg-cover bg-no-repeat
             transition-all duration-[800ms] ease-in-out
             ${i === current ? "opacity-100 z-10 scale-100" : "opacity-0 z-0 scale-105"}
+            ${slide.link ? "cursor-pointer" : ""}
           `}
-          style={{ backgroundImage: `url(${slide.img})` }}
+          style={{
+            backgroundImage: `url(${slide.img})`,
+            backgroundPosition: `center calc(50% + ${scrollOffset}px)`,
+          }}
           role="group"
           aria-roledescription="slide"
           aria-label={`Slide ${i + 1} of ${slides.length}`}
           aria-hidden={i !== current}
+          onClick={() => handleSlideClick(slide.link)}
+          tabIndex={slide.link ? 0 : -1}
+          onKeyDown={(e) => handleSlideKeyDown(e, slide.link)}
         >
           {/* Dark overlay for text readability */}
           <div className="absolute inset-0 bg-black/40" />

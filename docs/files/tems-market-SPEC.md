@@ -14,7 +14,7 @@ ASSUMPTIONS BAKED INTO THIS SPEC:
 1. Expo Router (file-based routing) is used — not React Navigation manually configured
 2. TypeScript strict mode is on throughout — no `any` types in production code
 3. Supabase is the sole backend — no custom Express/Node server
-4. All third-party API calls (Groq, OCR Space, Twilio, Resend, ModemPay payouts) go
+4. All third-party API calls (Groq, OCR Space, Meta WhatsApp Cloud API, Resend, ModemPay payouts) go
    through Supabase Edge Functions — never called directly from the client app
 5. State management is Zustand (lightweight, works well with Expo)
 6. Bun is the package manager (faster installs; falls back to npm if Replit doesn't support Bun)
@@ -69,10 +69,10 @@ Customer (shoppers). All Gambian-market-first. Mobile-first. WhatsApp-native com
 | Styling | NativeWind (Tailwind for RN) | v4 |
 | Forms | React Hook Form + Zod | Latest |
 | Payments | ModemPay API | v1 |
-| Auth | Supabase Auth + Twilio | — |
+| Auth | Supabase Auth + Meta WhatsApp Cloud API | — |
 | AI | Groq SDK | Latest |
 | OCR | OCR Space REST API | v1 |
-| Notifications | Twilio REST API | — |
+| Notifications | Meta WhatsApp Cloud API REST API | — |
 | Email | Resend SDK | Latest |
 | Analytics | PostHog React Native | Latest |
 | Error Monitor | Sentry Expo | Latest |
@@ -163,7 +163,10 @@ tems-market/
 │   │   ├── otp.tsx                 # OTP verification
 │   │   ├── register.tsx            # Name + password (new accounts)
 │   │   └── invite/
-│   │       └── [token].tsx         # Deep link handler for admin/vendor invites
+│   │       ├── [token].tsx         # Deep link handler for admin invites
+│   │       └── vendor/[token].tsx  # Vendor invite link → password setup screen
+│   ├── apply/
+│   │   └── vendor.tsx              # Public vendor application form (no auth required)
 │   │
 │   ├── (superadmin)/               # Superadmin-only screens
 │   │   ├── _layout.tsx             # Tab bar: Dashboard, Products, Users, Orders, Settings
@@ -200,11 +203,9 @@ tems-market/
 │   ├── (vendor)/                   # Vendor-only screens
 │   │   ├── _layout.tsx             # Tab bar: Dashboard, Catalogue, Listings, Orders, Wallet
 │   │   ├── dashboard.tsx
-│   │   ├── onboarding/             # Post-invite setup flow
-│   │   │   ├── business-info.tsx
-│   │   │   ├── id-upload.tsx       # OCR Space + Groq processing
-│   │   │   ├── payout-setup.tsx
-│   │   │   └── pending.tsx         # Waiting for admin approval
+│   │   ├── onboarding/             # Post-invite setup (after password set)
+│   │   │   ├── payout-setup.tsx    # Prompted on dashboard — required for payouts
+│   │   │   └── id-upload.tsx       # Optional post-signup verification
 │   │   ├── catalogue/
 │   │   │   ├── index.tsx           # Browse + set vendor price
 │   │   │   └── [id].tsx            # Set price + margin preview
@@ -355,7 +356,7 @@ tems-market/
 │   │   ├── 003_indexes.sql         # All indexes
 │   │   └── 004_seed_data.sql       # Platform settings defaults
 │   └── functions/                  # Edge functions (Deno)
-│       ├── send-otp/               # Twilio OTP trigger
+│       ├── send-otp/               # Meta WhatsApp Cloud API OTP trigger
 │       ├── invite-user/            # Admin/vendor invite SMS
 │       ├── modempay-webhook/       # Payment webhook handler
 │       ├── groq-vision/            # Product image → description
@@ -854,7 +855,7 @@ appId: com.temsmarket.app
 ### Test Doubles
 - Supabase: use local instance (`bunx supabase start`) — never mock Supabase directly
 - ModemPay: mock API responses in unit tests, use sandbox environment in integration/E2E
-- Twilio: mock in unit tests; use Twilio test credentials in integration
+- Meta WhatsApp Cloud API: mock in unit tests; use Meta WhatsApp Cloud API test credentials in integration
 - Groq: mock responses in unit tests (avoid API calls in CI)
 
 ---
@@ -883,7 +884,7 @@ appId: com.temsmarket.app
 - Changing the affiliate link short_code format (would break existing links)
 
 ### 🚫 Never Do
-- Call Groq, OCR Space, Twilio, Resend, or ModemPay payouts directly from the client app
+- Call Groq, OCR Space, Meta WhatsApp Cloud API, Resend, or ModemPay payouts directly from the client app
 - Hardcode any API key, secret, or credential in source code
 - Skip server-side validation because "the client already validated it"
 - Process a ModemPay webhook without verifying the signature
@@ -904,7 +905,7 @@ These are the conditions that define "the app is done and ready to ship." Each i
 - [ ] `bunx expo start` runs without errors on a fresh clone with `.env.local` populated
 - [ ] All 5 roles can reach their respective "ready state" screen in the simulator
 - [ ] Superadmin login (password + OTP) works end-to-end
-- [ ] Admin invite SMS fires via Twilio; admin taps link and completes account setup
+- [ ] Admin invite SMS fires via Meta WhatsApp Cloud API; admin taps link and completes account setup
 - [ ] Vendor invite SMS fires; vendor taps link and reaches onboarding flow
 - [ ] Affiliate self-registers via role-select screen and reaches affiliate dashboard
 - [ ] Customer self-registers and reaches home feed (empty state)
@@ -971,7 +972,7 @@ These must be answered before or during implementation. Do not guess — ask.
 | 3 | What are the sponsored listing prices? (7-day GMD X, 30-day GMD Y) | Phase 3 | Superadmin (you) |
 | 4 | What are the vendor subscription tiers via RevenueCat? (monthly price, what it unlocks) | Phase 4 | Superadmin (you) |
 | 5 | Can a customer be an affiliate simultaneously (one account, two roles)? Current spec: separate roles. Confirm direction. | Phase 1 | Superadmin (you) |
-| 6 | Twilio WhatsApp Business: has the WhatsApp Business API application been started? Approval can take 1–2 weeks | Phase 1 | Superadmin (you) |
+| 6 | Meta WhatsApp Cloud API WhatsApp Business: has the WhatsApp Business API application been started? Approval can take 1–2 weeks | Phase 1 | Superadmin (you) |
 | 7 | What gift card expiry period? (e.g. 12 months from purchase) | Phase 3 | Superadmin (you) |
 | 8 | ModemPay: does their sandbox support the full Payment Intent + sub-account + webhook flow? Needs confirmation from their team before Phase 3 | Phase 3 | You |
 | 9 | For vendor-submitted products: can a vendor submit a product that is NOT in the Tems-owned catalogue? (i.e. a completely new product that admin vets and adds) — or can vendors only set prices on existing catalogue items? | Phase 2 | Superadmin (you) |
@@ -1044,7 +1045,7 @@ LAYER 4 — Commerce (needs catalogue + vendor onboarding complete)
 │   ├── Verifies signature
 │   ├── Updates order.payment_status
 │   ├── Creates commission_ledger entries (vendor, affiliate, admin, platform)
-│   └── Triggers Twilio WhatsApp notification to vendor
+│   └── Triggers Meta WhatsApp Cloud API WhatsApp notification to vendor
 ├── Order success screen
 └── COD order flow (no payment API needed)
 
@@ -1070,8 +1071,8 @@ LAYER 7 — Wallets + Payouts (needs commission_ledger populated)
 └── payout-commission Edge Function (ModemPay payouts API)
 
 LAYER 8 — Notifications (wired throughout all layers above)
-├── Twilio SMS: OTP, invites, vendor rejection, payment confirmation
-├── Twilio WhatsApp: vendor approval, new order, order status, commission, payout
+├── Meta WhatsApp Cloud API SMS: OTP, invites, vendor rejection, payment confirmation
+├── Meta WhatsApp Cloud API WhatsApp: vendor approval, new order, order status, commission, payout
 └── Resend Email: gift card delivery, order confirmation (if email on profile)
 
 LAYER 9 — Order Management + Realtime (needs orders exist)
@@ -1096,7 +1097,7 @@ LAYER 10 — Launch (all layers complete)
 | Cart UI + Checkout UI | ModemPay integration requires checkout UI exists |
 | Gift card email template + Coupon creation screens | Both require checkout to exist first |
 | Marketing website + Expo affiliate link screen | Affiliate system requires commerce layer |
-| All Twilio notification wiring | Can wire to each layer as built |
+| All Meta WhatsApp Cloud API notification wiring | Can wire to each layer as built |
 
 ## Risks and Architecture Decisions
 
@@ -1269,11 +1270,11 @@ eas build --platform ios --profile preview   # Build succeeds
 ---
 
 - [ ] **Task P1-09: Phone number + OTP screens**
-  - Acceptance: User enters phone → `send-otp` Edge Function fires → Twilio SMS received;
+  - Acceptance: User enters phone → `send-otp` Edge Function fires → Meta WhatsApp Cloud API SMS received;
     OTP entered → Supabase session created; wrong OTP shows error; expired OTP shows error;
     max 3 attempts enforced
   - Verify: `maestro test e2e/auth-customer.yaml` passes through OTP step;
-    check Twilio console for delivered SMS
+    check Meta WhatsApp Cloud API console for delivered SMS
   - Files:
     - `app/(auth)/login.tsx`
     - `app/(auth)/otp.tsx`
@@ -1331,9 +1332,9 @@ eas build --platform ios --profile preview   # Build succeeds
 
 - [ ] **Task P1-14: Admin invite Edge Function + SMS**
   - Acceptance: Superadmin submits phone number → Edge Function creates user with role=admin
-    and status=pending → Twilio SMS fires with deep link to `/invite/[token]`;
+    and status=pending → Meta WhatsApp Cloud API SMS fires with deep link to `/invite/[token]`;
     invite token expires after 24 hours
-  - Verify: Check Twilio console for SMS; tap link in real device → app opens to invite screen
+  - Verify: Check Meta WhatsApp Cloud API console for SMS; tap link in real device → app opens to invite screen
   - Files:
     - `supabase/functions/invite-user/index.ts`
     - `app/(superadmin)/users/create-admin.tsx`
@@ -1342,7 +1343,7 @@ eas build --platform ios --profile preview   # Build succeeds
 
 - [ ] **Task P1-15: Vendor invite Edge Function + SMS**
   - Acceptance: Admin submits vendor phone → Edge Function creates user with role=vendor,
-    status=pending → Twilio SMS fires → vendor taps link → app opens to vendor onboarding
+    status=pending → Meta WhatsApp Cloud API SMS fires → vendor taps link → app opens to vendor onboarding
     (NOT the generic welcome screen)
   - Verify: Full invite flow on real device; `users` table shows vendor record with status=pending
   - Files:
@@ -1512,7 +1513,7 @@ eas build --platform ios --profile preview   # Build succeeds
     `create-sub-account` Edge Function fires → vendor notified via WhatsApp;
     Reject button → reason input → SMS sent to vendor
   - Verify: Approve a test vendor; confirm `vendor_profiles.modempay_subaccount_id` populated;
-    confirm WhatsApp delivered in Twilio console
+    confirm WhatsApp delivered in Meta WhatsApp Cloud API console
   - Files:
     - `app/(admin)/vendors/queue.tsx`
     - `app/(admin)/vendors/[id].tsx`
@@ -1593,7 +1594,7 @@ eas build --platform ios --profile preview   # Build succeeds
   - Acceptance: Webhook signature verified (reject unsigned requests with 401);
     idempotency check: if `commission_ledger` already has entries for `order_id`, return 200
     without re-processing; on success: order updated, commission_ledger entries created for
-    vendor + affiliate (if any) + admin + platform; Twilio WhatsApp fires to vendor
+    vendor + affiliate (if any) + admin + platform; Meta WhatsApp Cloud API WhatsApp fires to vendor
   - Verify: `bunx jest __tests__/lib/webhooks.test.ts` — test signature verification,
     idempotency, correct commission splits; manually trigger webhook in ModemPay sandbox
   - Files:
@@ -1774,7 +1775,7 @@ eas build --platform ios --profile preview   # Build succeeds
 - [ ] **Task P3-19: Order status management (vendor) + Realtime tracking (customer)**
   - Acceptance: Vendor orders screen shows incoming orders with status; vendor taps order →
     updates status (placed → confirmed → preparing → ready → delivered); each status change
-    fires Twilio WhatsApp to customer; customer order tracking screen updates in real time
+    fires Meta WhatsApp Cloud API WhatsApp to customer; customer order tracking screen updates in real time
     via Supabase Realtime (no manual refresh needed)
   - Verify: `maestro test e2e/order-status.yaml`; update status on simulator →
     confirm WhatsApp to customer; confirm customer screen updates without refresh
@@ -1787,17 +1788,17 @@ eas build --platform ios --profile preview   # Build succeeds
 
 ---
 
-- [ ] **Task P3-20: All Twilio notification events wired**
+- [ ] **Task P3-20: All Meta WhatsApp Cloud API notification events wired**
   - Acceptance: Every event in PRD Feature 11 Notification Event Map fires correctly;
-    all sent notifications logged in `notifications_log` table with twilio_sid
+    all sent notifications logged in `notifications_log` table with meta_whatsapp_sid
   - Verify: Go through notification event map one by one; trigger each event in simulator;
-    check Twilio console + `notifications_log` table
+    check Meta WhatsApp Cloud API console + `notifications_log` table
   - Files:
     - `supabase/functions/send-otp/index.ts` (already done, verify logging)
     - `supabase/functions/invite-user/index.ts` (already done, verify logging)
     - `supabase/functions/modempay-webhook/index.ts` (add all order/payment notifications)
     - `supabase/functions/payout-commission/index.ts` (add payout notifications)
-    - `lib/supabase/notifications.ts` (shared Twilio send + log helper)
+    - `lib/supabase/notifications.ts` (shared Meta WhatsApp Cloud API send + log helper)
 
 ---
 

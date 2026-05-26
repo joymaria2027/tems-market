@@ -67,15 +67,23 @@ CREATE TYPE payment_method AS ENUM (
 );
 
 CREATE TYPE credit_transaction_type AS ENUM (
-  'top_up',             -- customer bought credits via ModemPay (card/mobile money)
-  'purchase',           -- credits spent on an order (negative amount)
-  'refund',             -- order refunded as credits (positive amount)
-  'bonus',              -- promotional free credits issued by superadmin
-  'commission_credit',  -- vendor/affiliate/admin commission paid as credits (optional)
-  'gift_card_purchase', -- gift card bought with credits (negative amount)
-  'gift_card_redeem'    -- gift card redeemed into credit wallet (positive amount)
+  'top_up',                   -- instant top-up via ModemPay (mobile money/card)
+  'top_up_screenshot',        -- Wave screenshot top-up, credits added after MoMo Reconcile verification
+  'top_up_screenshot_rejected', -- screenshot rejected by manager — no credits added, for audit trail
+  'purchase',                 -- credits spent on an order (negative amount)
+  'refund',                   -- order refunded as credits (positive amount)
+  'bonus',                    -- promotional free credits issued by superadmin
+  'commission_credit',        -- vendor/affiliate/admin commission paid as credits
+  'gift_card_purchase',       -- gift card bought with credits (negative amount)
+  'gift_card_redeem'          -- gift card redeemed into credit wallet (positive amount)
   -- No transfer types — credits are non-transferable by design
   -- No withdrawal type — credits are non-withdrawable by design
+);
+
+CREATE TYPE screenshot_verification_status AS ENUM (
+  'pending',    -- uploaded, awaiting MoMo Reconcile manager
+  'verified',   -- manager confirmed — credits added
+  'rejected'    -- manager rejected — credits not added, reason recorded
 );
 
 CREATE TYPE commission_status AS ENUM (
@@ -194,6 +202,57 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_auth_user();
+
+-- ── Table: vendor_applications ────────────────────────────
+-- Vendor fills out this form before being invited.
+-- No user account exists yet at this stage.
+-- Admin reviews → generates invite link → vendor sets password → becomes a user.
+
+CREATE TYPE application_status AS ENUM (
+  'pending',    -- submitted, awaiting admin review
+  'approved',   -- admin approved, invite link generated
+  'rejected',   -- admin rejected
+  'expired',    -- invite link generated but vendor didn't use it (7-day expiry)
+  'completed'   -- vendor accepted invite, account created
+);
+
+CREATE TABLE public.vendor_applications (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_name    TEXT NOT NULL,
+  category         TEXT NOT NULL,         -- fashion, electronics, other
+  phone            TEXT NOT NULL,
+  description      TEXT,                  -- what they sell
+  location         TEXT,                  -- area in Gambia
+  status           application_status NOT NULL DEFAULT 'pending',
+  invite_token     TEXT UNIQUE,           -- set when admin generates invite link
+  invite_expires_at TIMESTAMPTZ,          -- 7 days from generation
+  invite_generated_by UUID REFERENCES public.users(id), -- admin who generated
+  invite_generated_at TIMESTAMPTZ,
+  user_id          UUID REFERENCES public.users(id),     -- set when account created
+  reviewed_by      UUID REFERENCES public.users(id),
+  rejection_reason TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TRIGGER vendor_applications_updated_at
+  BEFORE UPDATE ON public.vendor_applications
+  FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
+
+ALTER TABLE public.vendor_applications ENABLE ROW LEVEL SECURITY;
+
+-- Admins/superadmin can read and update all applications
+CREATE POLICY "vendor_applications: admin full" ON public.vendor_applications
+  FOR ALL USING (is_admin_or_above());
+
+-- Public insert (vendor submits form without being logged in)
+CREATE POLICY "vendor_applications: public insert" ON public.vendor_applications
+  FOR INSERT WITH CHECK (true);
+
+CREATE INDEX idx_vendor_applications_status ON public.vendor_applications(status);
+CREATE INDEX idx_vendor_applications_phone  ON public.vendor_applications(phone);
+CREATE INDEX idx_vendor_applications_token  ON public.vendor_applications(invite_token)
+  WHERE invite_token IS NOT NULL;
 
 -- ── Table: vendor_profiles ─────────────────────────────────
 
@@ -512,17 +571,31 @@ CREATE TRIGGER on_user_created_create_wallet
 -- amount_gmd is signed: positive = credits added, negative = credits deducted.
 
 CREATE TABLE public.credit_transactions (
-  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id               UUID NOT NULL REFERENCES public.users(id),
-  type                  credit_transaction_type NOT NULL,
-  amount_gmd            NUMERIC(10,2) NOT NULL,   -- signed: + in, − out
-  balance_after         NUMERIC(10,2) NOT NULL,   -- snapshot after transaction
-  counterparty_id       UUID REFERENCES public.users(id), -- for transfers: the other user
-  order_id              UUID REFERENCES public.orders(id),
-  modempay_payment_id   TEXT,  -- for top_up and withdrawal
-  note                  TEXT,  -- for bonus credits or admin notes
-  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  -- No updated_at — this table is INSERT-only, never mutated
+  id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                     UUID NOT NULL REFERENCES public.users(id),
+  type                        credit_transaction_type NOT NULL,
+  amount_gmd                  NUMERIC(10,2) NOT NULL,     -- signed: + in, − out
+  balance_after               NUMERIC(10,2) NOT NULL,     -- snapshot after transaction
+  order_id                    UUID REFERENCES public.orders(id),
+  modempay_payment_id         TEXT,                       -- for top_up (ModemPay path)
+  note                        TEXT,                       -- for bonus credits or admin notes
+
+  -- Wave screenshot top-up fields (null for non-screenshot transactions)
+  screenshot_url              TEXT,                       -- Supabase Storage URL of uploaded proof
+  wave_tx_id                  TEXT UNIQUE,                -- extracted transaction ID (uniqueness prevents reuse)
+  wave_amount_extracted       NUMERIC(10,2),              -- OCR-extracted amount for audit
+  wave_timestamp_extracted    TIMESTAMPTZ,                -- OCR-extracted transaction time
+  wave_sender_extracted       TEXT,                       -- OCR-extracted sender name/number
+  ocr_raw_text                TEXT,                       -- full OCR Space raw output (audit)
+  screenshot_status           screenshot_verification_status, -- only set for top_up_screenshot type
+  momo_reconcile_job_id       TEXT,                       -- MoMo Reconcile job for this screenshot
+  rejection_reason            TEXT,                       -- set if screenshot_status = 'rejected'
+  verified_at                 TIMESTAMPTZ,                -- when manager verified
+
+  created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  -- No updated_at — this table is INSERT-only for confirmed transactions
+  -- EXCEPTION: screenshot_status, verified_at, rejection_reason may be updated
+  -- by Edge Function when MoMo Reconcile webhook fires
 );
 
 -- RLS for credit_wallets
@@ -555,6 +628,11 @@ CREATE INDEX idx_credit_transactions_type  ON public.credit_transactions(type);
 CREATE INDEX idx_credit_transactions_order ON public.credit_transactions(order_id)
   WHERE order_id IS NOT NULL;
 CREATE INDEX idx_credit_transactions_time  ON public.credit_transactions(created_at DESC);
+-- Wave screenshot fraud protection
+CREATE UNIQUE INDEX idx_credit_transactions_wave_tx ON public.credit_transactions(wave_tx_id)
+  WHERE wave_tx_id IS NOT NULL;  -- prevents same Wave tx ID being used twice
+CREATE INDEX idx_credit_transactions_screenshot_status ON public.credit_transactions(screenshot_status)
+  WHERE screenshot_status IS NOT NULL;
 
 -- ── Table: customer_requests ──────────────────────────────
 -- Pre-order requests: customer demand captured in-app
@@ -603,13 +681,14 @@ CREATE INDEX idx_customer_requests_created    ON public.customer_requests(create
 -- ── Table: notifications_log ───────────────────────────────
 
 CREATE TABLE public.notifications_log (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID NOT NULL REFERENCES public.users(id),
-  type        TEXT NOT NULL,        -- otp, order_update, commission, invite, approval, gift_card
-  channel     notification_channel NOT NULL,
-  message     TEXT NOT NULL,
-  twilio_sid  TEXT,
-  sent_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID NOT NULL REFERENCES public.users(id),
+  type            TEXT NOT NULL,        -- otp, order_update, commission, invite, approval, gift_card
+  channel         notification_channel NOT NULL,
+  message         TEXT NOT NULL,
+  meta_message_id TEXT,                 -- Meta WhatsApp Cloud API message ID (wamid)
+  at_message_id   TEXT,                 -- Africa's Talking SMS message ID (fallback)
+  sent_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ── Table: invite_tokens ───────────────────────────────────
@@ -972,6 +1051,8 @@ INSERT INTO public.platform_settings (key, value, description) VALUES
   ('min_payout_gmd',            '10',     'Minimum wallet balance required to request a payout (ModemPay minimum).'),
   ('gift_card_expiry_months',   '12',     'Number of months a gift card is valid after purchase.'),
   ('credit_min_topup_gmd',      '100',    'Minimum credit top-up per transaction. Low barrier to entry, above ModemPay flat fee threshold.'),
+  ('wave_business_number',      '',       'Tems Market Wave Business account number. Displayed on top-up screen for screenshot payments. Set before launch.'),
+  ('screenshot_max_age_hours',  '24',     'Maximum age of a Wave screenshot transaction timestamp. Prevents reuse of old screenshots.'),
   ('momo_reconcile_fee_rate',   '0.01',   'MoMo Reconcile fee: 1% of combined platform collection per order. e.g. admin GMD 1 + vendor GMD 1 + affiliate GMD 0.20 = GMD 2.20 total → MoMo gets GMD 0.022. Paid by Tems from its own earnings.'),
   ('momo_reconcile_sla_hours',  '24',     'Hours before MoMo Reconcile auto-releases commission if manager times out.'),
   ('settlement_time_utc',       '22:00',  'Daily settlement run time in UTC (10 PM UTC = 11 PM Gambia time).'),

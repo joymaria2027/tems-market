@@ -12,14 +12,17 @@ const heroSlides: Slide[] = [
   {
     img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1600&q=80",
     text: ["DISCOVER YOUR", "NEXT FAVORITE"],
+    link: "/shop",
   },
   {
     img: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&q=80",
     text: ["SHOP LOCAL", "SUPPORT INDEPENDENT"],
+    link: "/shop",
   },
   {
     img: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1600&q=80",
     text: ["HANDMADE WITH", "CARE AND PURPOSE"],
+    link: "/become-a-vendor",
   },
 ];
 
