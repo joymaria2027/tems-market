@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Lock, Store, ArrowRight } from "lucide-react";
+import { CheckCircle2, XCircle, Lock, Store, ArrowRight, Sparkles, Upload, Camera, MapPin } from "lucide-react";
+import Confetti from "@/components/Confetti";
 
 type InviteState =
   | { status: "loading" }
@@ -29,6 +30,7 @@ const VendorInvite = () => {
   const [passwordError, setPasswordError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [ceremonyEntered, setCeremonyEntered] = useState(false);
 
   // Validate token on mount
   useEffect(() => {
@@ -103,12 +105,14 @@ const VendorInvite = () => {
       if (error) throw error;
 
       setCompleted(true);
+      // Trigger ceremony entrance
+      setTimeout(() => setCeremonyEntered(true), 100);
       toast({ title: "Account created!", description: "You can now log in and start selling." });
 
-      // Auto-redirect to login after 3 seconds
+      // Auto-redirect to login after 8 seconds (give ceremony time)
       setTimeout(() => {
         navigate("/login");
-      }, 3000);
+      }, 8000);
     } catch (err: any) {
       toast({
         title: "Setup failed",
@@ -215,24 +219,83 @@ const VendorInvite = () => {
     );
   }
 
-  // --- Completed ---
+  // --- Completed (GIFT, not receipt) ---
   if (completed) {
+    const businessName = state.status === "valid" ? state.businessName : "Your Store";
+    const CHECKLIST = [
+      { icon: Upload, label: "Upload your first product", desc: "Add photos, price, and description" },
+      { icon: Camera, label: "Add a profile photo", desc: "Help buyers recognize your brand" },
+      { icon: MapPin, label: "Set delivery areas", desc: "Choose where you can deliver" },
+    ];
+
     return (
       <Layout>
-        <div className="container py-24 max-w-md mx-auto text-center space-y-6">
-          <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <CheckCircle2 className="h-8 w-8 text-primary" />
+        {/* Stage 2: Confetti */}
+        <Confetti active={ceremonyEntered} count={100} duration={3500} />
+
+        <div className="container py-16 md:py-24 max-w-md mx-auto text-center space-y-6">
+          {/* Stage 2: Bouncing store icon */}
+          <div
+            className={`mx-auto w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center transition-all duration-700 ${ceremonyEntered ? "opacity-100" : "opacity-0 scale-50"}`}
+            style={{ animation: ceremonyEntered ? "welcomeBounce 0.7s ease-out 0.3s both" : "none" }}
+          >
+            <Store className="h-10 w-10 text-primary" />
           </div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Account Created!</h1>
-          <p className="text-muted-foreground">
-            Your vendor account is ready. You'll be redirected to the login page to sign in.
-          </p>
-          <Button asChild>
-            <Link to="/login">
-              Sign In Now <ArrowRight className="h-4 w-4 ml-1" />
-            </Link>
-          </Button>
+
+          {/* Stage 2: Welcome title */}
+          <div className={`space-y-3 transition-all duration-700 delay-200 ${ceremonyEntered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
+            <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground">
+              Welcome to Tems Market! 🎉
+            </h1>
+            <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-4 py-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="font-semibold text-primary text-sm">{businessName}</span>
+              <span className="text-muted-foreground text-sm">is now live!</span>
+            </div>
+          </div>
+
+          {/* Stage 3: Quick-start checklist (afterglow) */}
+          <div className={`bg-card rounded-xl border border-border p-5 text-left space-y-4 transition-all duration-700 delay-500 ${ceremonyEntered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
+            <p className="font-semibold text-foreground text-sm">Get started in 3 steps:</p>
+            {CHECKLIST.map((item, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3"
+                style={{ animation: ceremonyEntered ? `fadeSlideIn 0.4s ease-out ${0.8 + i * 0.15}s both` : "none" }}
+              >
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <item.icon className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{item.label}</p>
+                  <p className="text-xs text-muted-foreground">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className={`transition-all duration-500 delay-1000 ${ceremonyEntered ? "opacity-100" : "opacity-0"}`}>
+            <Button asChild size="lg" className="gap-2 w-full">
+              <Link to="/login">
+                Sign In & Start Selling <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">Auto-redirecting to login...</p>
+          </div>
         </div>
+
+        <style>{`
+          @keyframes welcomeBounce {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.15); opacity: 1; }
+            70% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+          }
+          @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+          }
+        `}</style>
       </Layout>
     );
   }

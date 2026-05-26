@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/layout/Layout";
@@ -39,6 +39,8 @@ import {
   Sparkles,
   ArrowLeft,
 } from "lucide-react";
+import Confetti from "@/components/Confetti";
+import ShareCard from "@/components/ShareCard";
 
 const BUSINESS_TYPES = [
   { value: "fashion_thrift", label: "Fashion & Thrift" },
@@ -216,6 +218,7 @@ const ApplyAsVendor = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [successEntered, setSuccessEntered] = useState(false);
 
   const updateField = <K extends keyof FormData>(key: K, value: FormData[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -316,6 +319,8 @@ const ApplyAsVendor = () => {
       if (error) throw error;
 
       setSubmitted(true);
+      // Trigger ceremony entrance after state settles
+      setTimeout(() => setSuccessEntered(true), 100);
       toast({
         title: "Application submitted!",
         description: "We'll review your application and be in touch within 48 hours.",
@@ -331,30 +336,68 @@ const ApplyAsVendor = () => {
     }
   };
 
-  // --- Success screen ---
+  // --- Success screen (GIFT, not receipt) ---
   if (submitted) {
+    const shareMsg = `I just applied to sell on Tems Market! 🏪 My business "${form.businessName}" is under review. Check it out → ${window.location.origin}/become-a-vendor`;
+
     return (
       <Layout>
+        {/* Stage 2: Confetti ceremony */}
+        <Confetti active={successEntered} count={90} duration={3500} />
+
         <div className="container py-16 md:py-24 max-w-lg mx-auto text-center space-y-6">
-          <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <CheckCircle2 className="h-8 w-8 text-primary" />
+          {/* Stage 2: Bouncing store icon */}
+          <div
+            className={`mx-auto w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center transition-all duration-700 ${successEntered ? "opacity-100" : "opacity-0 scale-50"}`}
+            style={{
+              animation: successEntered ? "vendorStoreBounce 0.7s ease-out 0.3s both" : "none",
+            }}
+          >
+            <Store className="h-10 w-10 text-primary" />
           </div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground">
-            Application Submitted!
-          </h1>
-          <p className="text-muted-foreground">
-            Thank you for applying to sell on Tems Market. Our team will review your application and
-            you'll receive a WhatsApp message within <strong>48 hours</strong> with next steps.
-          </p>
-          <div className="bg-secondary/30 rounded-xl border border-border p-5 text-left space-y-2 text-sm">
+
+          {/* Stage 2: Title with business name highlight */}
+          <div className={`space-y-3 transition-all duration-700 delay-200 ${successEntered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
+            <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground">
+              Application Submitted! 🎉
+            </h1>
+            <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-4 py-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="font-semibold text-primary text-sm">{form.businessName}</span>
+              <span className="text-muted-foreground text-sm">is under review!</span>
+            </div>
+            <p className="text-muted-foreground text-sm">
+              Our team will review your application and you'll receive a WhatsApp message within <strong>48 hours</strong>.
+            </p>
+          </div>
+
+          {/* Stage 3: Staggered next-steps (afterglow) */}
+          <div className={`bg-secondary/30 rounded-xl border border-border p-5 text-left space-y-3 text-sm transition-all duration-700 delay-500 ${successEntered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
             <p className="font-medium text-foreground">What happens next?</p>
-            <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
-              <li>An admin reviews your application</li>
-              <li>If approved, you'll receive an invite link via WhatsApp</li>
-              <li>Tap the link, set your password, and start listing products</li>
-            </ol>
+            {["An admin reviews your application", "If approved, you'll receive an invite link via WhatsApp", "Tap the link, set your password, and start listing products"].map((step, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3"
+                style={{ animation: successEntered ? `fadeSlideIn 0.4s ease-out ${0.8 + i * 0.15}s both` : "none" }}
+              >
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-xs font-bold text-primary">{i + 1}</span>
+                </div>
+                <p className="text-muted-foreground">{step}</p>
+              </div>
+            ))}
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+
+          {/* Stage 3: Share afterglow */}
+          <div className={`transition-all duration-700 delay-700 ${successEntered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
+            <ShareCard
+              message={shareMsg}
+              label="Tell your friends!"
+              whatsapp
+            />
+          </div>
+
+          <div className={`flex flex-col sm:flex-row gap-3 justify-center pt-2 transition-all duration-500 delay-1000 ${successEntered ? "opacity-100" : "opacity-0"}`}>
             <Button asChild>
               <Link to="/">Back to Home</Link>
             </Button>
@@ -363,6 +406,19 @@ const ApplyAsVendor = () => {
             </Button>
           </div>
         </div>
+
+        <style>{`
+          @keyframes vendorStoreBounce {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.15); opacity: 1; }
+            70% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+          }
+          @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+          }
+        `}</style>
       </Layout>
     );
   }

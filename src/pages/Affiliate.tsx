@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, Check, Link2, DollarSign, MousePointerClick, Loader2, TrendingUp, Users, Gift } from "lucide-react";
+import { Copy, Check, Link2, DollarSign, MousePointerClick, Loader2, TrendingUp, Users, Gift, Sparkles, PartyPopper } from "lucide-react";
 import { toast } from "sonner";
 import { formatGMD } from "@/lib/utils/currency";
+import CeremonyOverlay from "@/components/CeremonyOverlay";
+import ShareCard from "@/components/ShareCard";
 
-interface Affiliate {
+interface AffiliateData {
   id: string;
   code: string;
   commission_rate: number;
@@ -27,11 +29,17 @@ interface Referral {
 
 const Affiliate = () => {
   const { user, loading: authLoading } = useAuth();
-  const [affiliate, setAffiliate] = useState<Affiliate | null>(null);
+  const [affiliate, setAffiliate] = useState<AffiliateData | null>(null);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Gift states
+  const [showCreationCeremony, setShowCreationCeremony] = useState(false);
+  const [showFirstCommission, setShowFirstCommission] = useState(false);
+  const [firstCommissionAmount, setFirstCommissionAmount] = useState(0);
+  const [hadReferralsBefore, setHadReferralsBefore] = useState<boolean | null>(null);
 
   const fetchAffiliate = async () => {
     if (!user) return;
@@ -48,7 +56,19 @@ const Affiliate = () => {
         .select("*")
         .eq("affiliate_id", data.id)
         .order("created_at", { ascending: false });
-      setReferrals(refs || []);
+
+      const newRefs = refs || [];
+
+      // Priority 5: Detect first commission milestone
+      if (hadReferralsBefore === false && newRefs.length > 0) {
+        setFirstCommissionAmount(newRefs[0].commission_amount);
+        setShowFirstCommission(true);
+      }
+      if (hadReferralsBefore === null) {
+        setHadReferralsBefore(newRefs.length > 0);
+      }
+
+      setReferrals(newRefs);
     }
     setLoading(false);
   };
@@ -72,8 +92,9 @@ const Affiliate = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Affiliate account created!");
+      // Priority 3: Show ceremony instead of toast
       await fetchAffiliate();
+      setShowCreationCeremony(true);
     }
     setCreating(false);
   };
@@ -143,7 +164,14 @@ const Affiliate = () => {
           </div>
 
           <Button onClick={handleCreate} disabled={creating} size="lg" className="gap-2">
-            {creating ? "Creating…" : "Become an Affiliate"}
+            {creating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Setting up your account...
+              </>
+            ) : (
+              "Become an Affiliate"
+            )}
           </Button>
         </div>
       </Layout>
@@ -152,6 +180,62 @@ const Affiliate = () => {
 
   return (
     <Layout>
+      {/* Priority 3: Creation ceremony overlay */}
+      <CeremonyOverlay
+        active={showCreationCeremony}
+        icon={<PartyPopper className="h-10 w-10 text-primary" />}
+        title="You're an Affiliate! 🎉"
+        subtitle={`Your unique code is ${affiliate.code}. Share your link and start earning ${affiliate.commission_rate}% on every sale!`}
+        iconBg="bg-primary/10"
+        onDismiss={() => setShowCreationCeremony(false)}
+      >
+        <div className="mt-4 space-y-4">
+          <ShareCard
+            message={`Check out Tems Market! Shop with my link and I'll earn a commission 💰 → ${referralLink}`}
+            label="Share your link now"
+            whatsapp
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => setShowCreationCeremony(false)}
+          >
+            I'll share later
+          </Button>
+        </div>
+      </CeremonyOverlay>
+
+      {/* Priority 5: First commission ceremony */}
+      <CeremonyOverlay
+        active={showFirstCommission}
+        icon={<DollarSign className="h-10 w-10 text-green-500" />}
+        title="First Commission! 💰"
+        subtitle={`You just earned ${formatGMD(firstCommissionAmount)} from your first referral!`}
+        iconBg="bg-green-100 dark:bg-green-900/30"
+        onDismiss={() => setShowFirstCommission(false)}
+      >
+        <div className="mt-4 space-y-4">
+          <div className="inline-flex items-center gap-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full px-3 py-1 text-xs font-semibold">
+            <Sparkles className="h-3 w-3" />
+            First Sale Milestone ✨
+          </div>
+          <ShareCard
+            message={`I just earned my first commission on Tems Market! 💸 Join the affiliate program → ${window.location.origin}/affiliate`}
+            label="Share your success"
+            whatsapp
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => setShowFirstCommission(false)}
+          >
+            Continue to dashboard
+          </Button>
+        </div>
+      </CeremonyOverlay>
+
       <div className="container py-10 max-w-3xl">
         <h1 className="font-display text-3xl font-bold text-foreground mb-8">Affiliate Dashboard</h1>
 
@@ -193,11 +277,21 @@ const Affiliate = () => {
         <div className="bg-card rounded-xl border border-border p-6">
           <h2 className="font-semibold text-foreground mb-4">Referral History</h2>
           {referrals.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No referrals yet. Share your link to start earning!</p>
+            <div className="text-center py-8 space-y-3">
+              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto">
+                <TrendingUp className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">No referrals yet.</p>
+              <p className="text-xs text-muted-foreground">Share your link to earn your first commission!</p>
+            </div>
           ) : (
             <div className="space-y-3">
-              {referrals.map((r) => (
-                <div key={r.id} className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0">
+              {referrals.map((r, i) => (
+                <div
+                  key={r.id}
+                  className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0"
+                  style={{ animation: `fadeSlideIn 0.3s ease-out ${i * 0.05}s both` }}
+                >
                   <div>
                     <p className="font-mono text-xs text-muted-foreground">{r.order_id.slice(0, 8)}…</p>
                     <p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</p>
@@ -216,6 +310,13 @@ const Affiliate = () => {
           )}
         </div>
       </div>
+
+      <style>{`
+        @keyframes fadeSlideIn {
+          from { opacity: 0; transform: translateX(-8px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
     </Layout>
   );
 };

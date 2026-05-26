@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { ShoppingBag, ArrowLeft, Building2 } from "lucide-react";
+import { ShoppingBag, ArrowLeft, Building2, Loader2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { getStoredRefCode, clearStoredRefCode } from "@/hooks/useReferralTracker";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -16,7 +16,16 @@ const Checkout = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [orderPhase, setOrderPhase] = useState(0);
   const { formatPrice } = useCurrency();
+
+  // Stage 1: Anticipation — cycle through processing phases
+  useEffect(() => {
+    if (!loading) { setOrderPhase(0); return; }
+    const t1 = setTimeout(() => setOrderPhase(1), 1200);
+    const t2 = setTimeout(() => setOrderPhase(2), 2800);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [loading]);
 
   if (items.length === 0) {
     return (
@@ -176,12 +185,27 @@ const Checkout = () => {
             </div>
 
             <Button
-              className="w-full"
+              className="w-full gap-2 transition-all duration-300"
               size="lg"
               disabled={loading}
               onClick={handlePlaceOrder}
             >
-              {loading ? "Placing Order…" : "Place Order"}
+              {loading ? (
+                <>
+                  {orderPhase < 2 ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 text-green-400 animate-pulse" />
+                  )}
+                  <span className="transition-opacity duration-300">
+                    {orderPhase === 0 && "Placing order..."}
+                    {orderPhase === 1 && "Confirming payment..."}
+                    {orderPhase === 2 && "Almost there..."}
+                  </span>
+                </>
+              ) : (
+                "Place Order"
+              )}
             </Button>
           </div>
         </div>

@@ -31,6 +31,8 @@ import AdminOrders from "./pages/admin/AdminOrders";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminAffiliates from "./pages/admin/AdminAffiliates";
 import AdminVendors from "./pages/admin/AdminVendors";
+import AdminApplicationReview from "./pages/admin/AdminApplicationReview";
+import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminGuard from "./components/AdminGuard";
 import SuperAdminGuard from "./components/SuperAdminGuard";
 import Affiliate from "./pages/Affiliate";
@@ -81,6 +83,8 @@ const App = () => (
             <Route path="/admin/users" element={<AdminGuard><AdminUsers /></AdminGuard>} />
             <Route path="/admin/orders" element={<AdminGuard><AdminOrders /></AdminGuard>} />
             <Route path="/admin/vendors" element={<AdminGuard><AdminVendors /></AdminGuard>} />
+            <Route path="/admin/vendors/review/:applicationId" element={<AdminGuard><AdminApplicationReview /></AdminGuard>} />
+            <Route path="/admin/notifications" element={<AdminGuard><AdminNotifications /></AdminGuard>} />
             <Route path="/admin/affiliates" element={<AdminGuard><AdminAffiliates /></AdminGuard>} />
             <Route path="/superadmin" element={<SuperAdminGuard><SuperAdminDashboard /></SuperAdminGuard>} />
             <Route path="/affiliate" element={<Affiliate />} />
