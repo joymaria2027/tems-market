@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCurrency } from "@/hooks/useCurrency";
 import type { DbProduct } from "@/types/product";
+import { imageKit, imageSizes } from "@/lib/imageKit";
 
 interface ShopProductCardProps {
   product: DbProduct;
@@ -17,7 +18,7 @@ const ShopProductCard = ({ product }: ShopProductCardProps) => {
     <div className="group flex flex-col rounded-lg bg-card border border-border shadow-card hover:shadow-card-hover transition-all duration-300 overflow-hidden">
       <Link to={`/product/${product.slug}`} className="relative aspect-square overflow-hidden bg-muted">
         <img
-          src={image}
+          src={imageKit(image, imageSizes.thumb)}
           alt={product.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"

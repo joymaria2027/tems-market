@@ -1,22 +1,29 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, Package, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
+import { ShoppingCart, Package, ChevronLeft, ChevronRight, ArrowLeft, Star } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useReviews, useReviewStats, useHasReviewed } from "@/hooks/useReviews";
+import ReviewForm from "@/components/review/ReviewForm";
+import ReviewList, { ReviewEmptyState } from "@/components/review/ReviewList";
+import { imageKit, imageSizes } from "@/lib/imageKit";
 
 const ProductDetail = () => {
   const { slug } = useParams();
   const { addItem } = useCart();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { formatPrice } = useCurrency();
   const [selectedImage, setSelectedImage] = useState(0);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", slug],
@@ -77,6 +84,17 @@ const ProductDetail = () => {
   const vendorName = (product.profiles as any)?.store_name || (product.profiles as any)?.name || "Unknown Vendor";
   const categoryName = (product.categories as any)?.name;
 
+  // ── Reviews ──────────────────────────────────────────────
+  const { data: reviews = [] } = useReviews(product?.id);
+  const { stats } = useReviewStats(product?.id);
+  const { data: hasReviewed, isLoading: reviewedLoading } = useHasReviewed(product?.id, user?.id);
+
+  const canReview =
+    !!user &&
+    !!product?.id &&
+    hasReviewed === false &&
+    !reviewSubmitted;
+
   const handleAddToCart = () => {
     addItem({
       id: product.id,
@@ -97,7 +115,7 @@ const ProductDetail = () => {
           <div className="space-y-3">
             <div className="aspect-square rounded-xl overflow-hidden bg-muted relative group">
               <img
-                src={images[selectedImage]}
+                src={imageKit(images[selectedImage], imageSizes.detail)}
                 alt={product.title}
                 className="w-full h-full object-cover"
               />
@@ -132,7 +150,7 @@ const ProductDetail = () => {
                       i === selectedImage ? "border-primary" : "border-transparent"
                     }`}
                   >
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <img src={imageKit(img, imageSizes.thumbStrip)} alt="" className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -174,6 +192,39 @@ const ProductDetail = () => {
               <ShoppingCart className="h-5 w-5" />
               Add to Cart
             </Button>
+          </div>
+
+          {/* ── Reviews section ─────────────────────────── */}
+          <div className="mt-10 pt-10 border-t border-border col-span-full">
+            <div className="flex items-center gap-2 mb-6">
+              <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+              <h2 className="font-display text-xl font-bold text-foreground">
+                Reviews
+                {stats && stats.count > 0 && (
+                  <span className="text-muted-foreground font-normal ml-1">
+                    ({stats.count})
+                  </span>
+                )}
+              </h2>
+            </div>
+
+            {/* Review form (logged-in users who haven't reviewed) */}
+            {canReview && (
+              <div className="mb-8 p-5 rounded-lg border border-border bg-card">
+                <ReviewForm
+                  productId={product.id}
+                  userId={user.id}
+                  onSubmitted={() => setReviewSubmitted(true)}
+                />
+              </div>
+            )}
+
+            {/* Existing reviews */}
+            {reviews.length > 0 ? (
+              <ReviewList productId={product.id} userId={user?.id} />
+            ) : (
+              <ReviewEmptyState />
+            )}
           </div>
         </div>
       </div>

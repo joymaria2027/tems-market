@@ -22,5 +22,14 @@ verify_jwt = false
 [functions.update-password]
 verify_jwt = false
 
+[functions.check-email-exists]
+verify_jwt = false
+
+[functions.purgo-filter]
+verify_jwt = false
+
 [functions.invite-admin]
+verify_jwt = false
+
+[functions.create-short-url]
 verify_jwt = false

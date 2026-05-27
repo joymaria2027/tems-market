@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { checkProfanity } from "@/lib/profanityFilter";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,15 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Upload, X, ImagePlus, Loader2 } from "lucide-react";
+import { Upload, X, ImagePlus, Loader2, Ticket, Calendar, MapPin } from "lucide-react";
+
+const TICKET_CATEGORY_SLUGS = new Set([
+  "food-ticket",
+  "drinks-ticket",
+  "games-ticket",
+  "gate-entry-ticket",
+  "parking-ticket",
+]);
 
 const VendorUpload = () => {
   const { user } = useAuth();
@@ -25,6 +34,13 @@ const VendorUpload = () => {
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
   const [categoryId, setCategoryId] = useState("");
+
+  // Ticket-specific fields
+  const [eventDate, setEventDate] = useState("");
+  const [venue, setVenue] = useState("");
+  const [validFrom, setValidFrom] = useState("");
+  const [validTo, setValidTo] = useState("");
+  const [ticketTerms, setTicketTerms] = useState("");
   
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -34,10 +50,13 @@ const VendorUpload = () => {
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id, name").order("name");
+      const { data } = await supabase.from("categories").select("id, name, slug").order("name");
       return data ?? [];
     },
   });
+
+  const selectedCategory = categories.find((c) => c.id === categoryId);
+  const isTicketCategory = selectedCategory ? TICKET_CATEGORY_SLUGS.has(selectedCategory.slug) : false;
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const incoming = Array.from(files).filter((f) => f.type.startsWith("image/"));
@@ -71,6 +90,23 @@ const VendorUpload = () => {
     }
 
     setSubmitting(true);
+
+    // ── Profanity check ───────────────────────────────────
+    const titleCheck = await checkProfanity(title);
+    if (titleCheck.ok && !titleCheck.clean) {
+      toast({ title: "Inappropriate title", description: "Please remove inappropriate language from the product title.", variant: "destructive" });
+      setSubmitting(false);
+      return;
+    }
+    if (description) {
+      const descCheck = await checkProfanity(description);
+      if (descCheck.ok && !descCheck.clean) {
+        toast({ title: "Inappropriate description", description: "Please remove inappropriate language from the description.", variant: "destructive" });
+        setSubmitting(false);
+        return;
+      }
+    }
+
     try {
       // Upload images
       const uploadedUrls: string[] = [];
@@ -85,6 +121,16 @@ const VendorUpload = () => {
 
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Date.now();
 
+      const ticketMeta = isTicketCategory
+        ? {
+            event_date: eventDate || null,
+            venue: venue || null,
+            valid_from: validFrom || null,
+            valid_to: validTo || null,
+            terms: ticketTerms || null,
+          }
+        : null;
+
       const { error: insertError } = await supabase.from("products").insert({
         vendor_id: user.id,
         title,
@@ -93,6 +139,8 @@ const VendorUpload = () => {
         price: parseFloat(price),
         stock: parseInt(stock) || 0,
         category_id: categoryId || null,
+        product_type: isTicketCategory ? "ticket" : "physical",
+        ticket_meta: ticketMeta,
         sponsored: false,
         images: uploadedUrls,
         status: "pending",
@@ -142,7 +190,7 @@ const VendorUpload = () => {
           {/* Category */}
           <div className="space-y-2">
             <Label>Category</Label>
-            <Select value={categoryId} onValueChange={setCategoryId}>
+            <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setEventDate(""); setVenue(""); setValidFrom(""); setValidTo(""); setTicketTerms(""); }}>
               <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
               <SelectContent>
                 {categories.map((c) => (
@@ -151,6 +199,49 @@ const VendorUpload = () => {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Ticket-specific fields */}
+          {isTicketCategory && (
+            <div className="rounded-lg border border-border bg-card p-5 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Ticket className="h-4 w-4" />
+                Ticket Details
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="eventDate" className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                    Event Date
+                  </Label>
+                  <Input id="eventDate" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="venue" className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                    Venue / Location
+                  </Label>
+                  <Input id="venue" value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="e.g. Banjul Stadium" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="validFrom">Valid From</Label>
+                  <Input id="validFrom" type="date" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="validTo">Valid Until</Label>
+                  <Input id="validTo" type="date" value={validTo} onChange={(e) => setValidTo(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="ticketTerms">Terms & Conditions</Label>
+                <Textarea id="ticketTerms" value={ticketTerms} onChange={(e) => setTicketTerms(e.target.value)} placeholder="e.g. One entry per ticket, no re-entry..." rows={2} />
+              </div>
+            </div>
+          )}
 
           {/* Images */}
           <div className="space-y-2">

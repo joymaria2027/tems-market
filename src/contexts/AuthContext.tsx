@@ -184,14 +184,81 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: null, session: data.session as Session };
   };
 
-  // ─── Email/password sign in (superadmin) ────────────────────────────────────────
+  // ─── Email/password sign in (admin/superadmin) ─────────────────────────────────
+  //
+  // On failure, we call check-email-exists Edge Function to distinguish
+  // "no account" from "wrong password" and give the user a more helpful error.
 
   const signInWithEmail = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    return { error: error as Error | null };
+
+    if (!error) {
+      return { error: null };
+    }
+
+    const msg = error.message?.toLowerCase() || "";
+
+    // If it's a rate-limit or network error, surface it directly
+    if (msg.includes("rate_limit") || msg.includes("too many")) {
+      return {
+        error: new Error(
+          "Too many sign-in attempts. Please wait a moment and try again.",
+        ),
+      };
+    }
+
+    if (msg.includes("email not confirmed")) {
+      return {
+        error: new Error(
+          "Your email has not been confirmed yet. Check your inbox for the confirmation link.",
+        ),
+      };
+    }
+
+    if (msg.includes("timeout") || msg.includes("network")) {
+      return { error: new Error("Connection issue. Please check your internet and try again.") };
+    }
+
+    // For "Invalid login credentials", check whether the account actually exists
+    if (msg.includes("invalid login credentials") || msg.includes("invalid_credentials")) {
+      try {
+        const { data: existsData } = await supabase.functions.invoke(
+          "check-email-exists",
+          { body: { email } },
+        );
+
+        if (existsData?.exists === false) {
+          return {
+            error: new Error(
+              "No account found with this email. Please check the email address or contact your admin.",
+            ),
+          };
+        }
+
+        if (existsData?.exists === true) {
+          return {
+            error: new Error(
+              "Incorrect password. Try again or use the 'Forgot password' link below.",
+            ),
+          };
+        }
+      } catch {
+        // If the check-edge-function is unavailable, show generic error
+      }
+
+      // Fallback: generic error when we can't determine the cause
+      return {
+        error: new Error(
+          "Invalid email or password. Please check your credentials and try again.",
+        ),
+      };
+    }
+
+    // Any other error — surface as-is but wrap in a friendly prefix
+    return { error: new Error(error.message) };
   };
 
   // ─── Update password via Edge Function ───────────────────────────────────────────

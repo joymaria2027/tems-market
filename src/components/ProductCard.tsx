@@ -3,6 +3,7 @@ import { Star } from "lucide-react";
 import type { Product } from "@/data/mockProducts";
 import { Badge } from "@/components/ui/badge";
 import { useCurrency } from "@/hooks/useCurrency";
+import { imageKit, imageSizes } from "@/lib/imageKit";
 
 const ProductCard = ({ product }: { product: Product }) => {
   const { formatPrice } = useCurrency();
@@ -17,7 +18,7 @@ const ProductCard = ({ product }: { product: Product }) => {
     >
       <div className="relative aspect-square overflow-hidden bg-muted">
         <img
-          src={product.image}
+          src={imageKit(product.image, imageSizes.thumb)}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"

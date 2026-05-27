@@ -25,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { checkFields } from "@/lib/profanityFilter";
 import {
   Store,
   ChevronLeft,
@@ -287,6 +288,30 @@ const ApplyAsVendor = () => {
     if (!validateStep(5)) return;
 
     setSubmitting(true);
+
+    // ── Profanity check ───────────────────────────────────
+    const flagged = await checkFields({
+      businessName: form.businessName,
+      businessDescription: form.businessDescription,
+      specificItems: form.specificItems,
+      additionalNotes: form.additionalNotes,
+    });
+    if (flagged) {
+      const labels: Record<string, string> = {
+        businessName: "Business name",
+        businessDescription: "Business description",
+        specificItems: "Items you'll sell",
+        additionalNotes: "Additional notes",
+      };
+      toast({
+        title: "Inappropriate content",
+        description: `Please remove inappropriate language from the ${labels[flagged.field] || flagged.field}.`,
+        variant: "destructive",
+      });
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const { error } = await supabase.from("vendor_applications").insert({
         business_name: form.businessName.trim(),

@@ -301,11 +301,18 @@ CREATE TABLE public.products (
   base_price           NUMERIC(10,2) NOT NULL CHECK (base_price > 0),
   inventory_type       inventory_type NOT NULL DEFAULT 'tems_owned',
   status               product_status NOT NULL DEFAULT 'draft',
+  product_type         TEXT NOT NULL DEFAULT 'physical'
+                       CHECK (product_type IN ('physical', 'ticket')),
+  ticket_meta          JSONB,  -- {event_date, venue, ticket_type, valid_from, valid_to, terms} for ticket products
   created_by           UUID NOT NULL REFERENCES public.users(id),
   submitted_by_vendor  UUID REFERENCES public.users(id),
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+COMMENT ON COLUMN public.products.product_type IS 'physical | ticket — determines UI fields, cart display, and checkout behavior';
+COMMENT ON COLUMN public.products.ticket_meta IS 'JSON object for ticket products: {event_date, venue, ticket_type, valid_from, valid_to, terms}';
+
 
 CREATE TRIGGER products_updated_at
   BEFORE UPDATE ON public.products
@@ -677,6 +684,52 @@ CREATE POLICY "customer_requests: admin full" ON public.customer_requests
 CREATE INDEX idx_customer_requests_status     ON public.customer_requests(status);
 CREATE INDEX idx_customer_requests_category   ON public.customer_requests(category);
 CREATE INDEX idx_customer_requests_created    ON public.customer_requests(created_at DESC);
+
+-- ── Table: product_reviews ────────────────────────────────
+
+CREATE TABLE public.product_reviews (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id    UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  user_id       UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  rating        SMALLINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  review_text   TEXT NOT NULL CHECK (char_length(review_text) <= 2000),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(product_id, user_id)  -- one review per user per product
+);
+
+CREATE TRIGGER product_reviews_updated_at
+  BEFORE UPDATE ON public.product_reviews
+  FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
+
+ALTER TABLE public.product_reviews ENABLE ROW LEVEL SECURITY;
+
+-- Any authenticated user can read all reviews (for product detail page)
+CREATE POLICY "product_reviews: authenticated read" ON public.product_reviews
+  FOR SELECT USING (auth.uid() IS NOT NULL);
+
+-- Customers insert their own reviews
+CREATE POLICY "product_reviews: customer insert own" ON public.product_reviews
+  FOR INSERT WITH CHECK (
+    user_id = auth.uid()
+    AND get_user_role() = 'customer'
+  );
+
+-- Users can update/delete their own reviews
+CREATE POLICY "product_reviews: user update own" ON public.product_reviews
+  FOR UPDATE USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "product_reviews: user delete own" ON public.product_reviews
+  FOR DELETE USING (user_id = auth.uid());
+
+-- Admin/superadmin full access
+CREATE POLICY "product_reviews: admin full" ON public.product_reviews
+  FOR ALL USING (is_admin_or_above());
+
+CREATE INDEX idx_product_reviews_product   ON public.product_reviews(product_id);
+CREATE INDEX idx_product_reviews_user      ON public.product_reviews(user_id);
+CREATE INDEX idx_product_reviews_rating    ON public.product_reviews(rating);
 
 -- ── Table: notifications_log ───────────────────────────────
 

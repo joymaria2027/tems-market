@@ -30,7 +30,7 @@ const Header = () => {
               Super Admin
             </Link>
           ) : profile?.role === "admin" ? (
-            <Link to="/admin" className="text-muted-foreground hover:text-foreground transition-colors">Admin Dashboard</Link>
+            <Link to="/admin/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">Admin Dashboard</Link>
           ) : profile?.role === "vendor" ? (
             <Link to="/vendor/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">Vendor Dashboard</Link>
           ) : (
@@ -93,7 +93,7 @@ const Header = () => {
           {profile?.role === "superadmin" ? (
             <Link to="/superadmin" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-purple-600 dark:text-purple-400">Super Admin</Link>
           ) : profile?.role === "admin" ? (
-            <Link to="/admin" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Admin Dashboard</Link>
+            <Link to="/admin/dashboard" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Admin Dashboard</Link>
           ) : profile?.role === "vendor" ? (
             <Link to="/vendor/dashboard" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Vendor Dashboard</Link>
           ) : (

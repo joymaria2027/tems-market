@@ -13,6 +13,7 @@ import {
   statusColors, type RecentOrder
 } from "@/data/mockAdminData";
 import { formatGMD } from "@/lib/utils/currency";
+import { revenueChartUrl } from "@/lib/quickChart";
 
 interface StatCardProps {
   label: string;
@@ -122,7 +123,7 @@ const AdminDashboard = () => {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Revenue Chart + Recent Orders */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Revenue Chart */}
+{/* Revenue Chart — QuickChart rendered image */}
             <div className="bg-card rounded-xl border border-border p-5 md:p-6 shadow-sm">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
@@ -132,36 +133,21 @@ const AdminDashboard = () => {
                 <span className="text-xs text-muted-foreground">Last 6 months</span>
               </div>
 
-              <div className="flex items-end gap-2 md:gap-3 h-40 md:h-48">
-                {mockRevenueByMonth.map((month) => {
-                  const maxRevenue = Math.max(...mockRevenueByMonth.map((m) => m.revenue));
-                  const heightPercent = (month.revenue / maxRevenue) * 100;
-                  return (
-                    <div key={month.month} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
-                      <span className="text-[10px] font-medium text-foreground">
-                        D{(month.revenue / 1000).toFixed(0)}k
-                      </span>
-                      <div className="relative w-full max-w-[40px] flex-1 rounded-md bg-primary/10 transition-colors">
-                        <div
-                          className="absolute bottom-0 w-full rounded-md bg-primary transition-all duration-500 hover:opacity-90"
-                          style={{ height: `${heightPercent}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] text-muted-foreground">{month.month}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              <img
+                src={revenueChartUrl(
+                  mockRevenueByMonth.map((m) => m.month),
+                  mockRevenueByMonth.map((m) => m.revenue),
+                )}
+                alt="Monthly revenue chart"
+                className="w-full h-auto max-h-64 object-contain"
+                loading="lazy"
+              />
 
               {/* Legend */}
               <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-sm bg-primary" />
-                  <span>Revenue</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-sm bg-primary/20" />
-                  <span>Full capacity</span>
+                  <span>Revenue (GMD)</span>
                 </div>
               </div>
             </div>
