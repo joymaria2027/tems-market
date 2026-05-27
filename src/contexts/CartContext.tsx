@@ -8,6 +8,7 @@ export interface CartItem {
   vendor_name: string;
   quantity: number;
   stock: number;
+  product_type?: "physical" | "ticket";
 }
 
 export interface AppliedCoupon {

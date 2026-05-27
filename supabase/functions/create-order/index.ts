@@ -36,29 +36,21 @@ serve(async (req) => {
       });
     }
 
-    // ── Parse request ─────────────────────────────────────────────
-    const { listing_id, quantity, coupon_code, ref_code, delivery_address, payment_method } = await req.json() as {
-      listing_id: string;
-      quantity: number;
-      coupon_code?: string;
-      ref_code?: string;
-      delivery_address: string;
-      payment_method?: string;
-    };
+    // ── Parse request (supports both single-listing and multi-item formats) ──
+    const body = await req.json();
 
-    if (!listing_id || !quantity || quantity < 1 || !Number.isInteger(quantity)) {
-      throw new Error("listing_id and positive integer quantity are required");
+    // Accept only `items[]` (multi-item format). Legacy single-item format removed.
+    const items: { product_id: string; quantity: number }[] = body.items ?? [];
+    const couponCode: string | undefined = body.coupon_code ?? body.couponCode;
+    const refCode: string | undefined = body.ref_code ?? body.refCode;
+    const deliveryAddress: string | undefined = body.delivery_address ?? body.deliveryAddress;
+    const paymentMethod: string | undefined = body.payment_method ?? body.paymentMethod;
+
+    if (items.length === 0) {
+      throw new Error("`items[]` is required — provide an array of { product_id, quantity }");
     }
 
-    if (!delivery_address || delivery_address.trim().length === 0) {
-      throw new Error("delivery_address is required");
-    }
-
-    // Validate payment_method against schema enum
-    const validPaymentMethods = ["qmoney", "afrimoney", "wave", "cash", "credits", "gift_card", "mixed"];
-    const resolvedPaymentMethod = payment_method && validPaymentMethods.includes(payment_method)
-      ? payment_method
-      : "cash";
+    const orderItems = items;
 
     // ── Service client (bypasses RLS for writes) ──────────────────
     const serviceClient = createClient(
@@ -66,38 +58,82 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // ── Fetch listing + product server-side ───────────────────────
-    const { data: listing, error: listingErr } = await serviceClient
-      .from("vendor_listings")
-      .select("id, vendor_id, vendor_price, is_active, product_id")
-      .eq("id", listing_id)
-      .single();
-
-    if (listingErr || !listing) throw new Error("Listing not found");
-    if (!listing.is_active) throw new Error("Listing is not active");
-
-    const { data: product, error: prodErr } = await serviceClient
+    // ── Fetch product details for all items ──────────────────────
+    const productIds = orderItems.map((i) => i.product_id);
+    const { data: products, error: prodErr } = await serviceClient
       .from("products")
-      .select("id, title, status, submitted_by_vendor")
-      .eq("id", listing.product_id)
-      .single();
+      .select("id, title, price, stock, product_type, status")
+      .in("id", productIds);
 
-    if (prodErr || !product) throw new Error("Product not found");
-    if (product.status !== "active") throw new Error("Product is not available");
+    if (prodErr || !products || products.length === 0) {
+      throw new Error("Products not found");
+    }
 
-    // ── Calculate server-side totals ──────────────────────────────
-    const unitPrice = Number(listing.vendor_price);
-    const totalAmount = unitPrice * quantity;
+    // Check all products are available
+    for (const p of products) {
+      if (p.status !== "active" && p.status !== "approved") {
+        throw new Error(`Product "${p.title}" is not available`);
+      }
+    }
 
-    // ── Validate coupon (server-side) ─────────────────────────────
+    // ── Resolve listing_id from vendor_listings (for orders.listing_id FK) ──
+    // The orders table has listing_id NOT NULL referencing vendor_listings.
+    // For multi-item orders, use the first product's listing.
+    const { data: listings, error: listingErr } = await serviceClient
+      .from("vendor_listings")
+      .select("id")
+      .eq("product_id", orderItems[0].product_id)
+      .eq("is_active", true)
+      .limit(1);
+
+    if (listingErr || !listings || listings.length === 0) {
+      throw new Error(`No active vendor listing found for product ${orderItems[0].product_id}`);
+    }
+
+    const resolvedListingId = listings[0].id;
+
+    // ── Detect if order contains only tickets ────────────────────
+    const allTickets = products.every((p) => p.product_type === "ticket");
+    const anyTicket = products.some((p) => p.product_type === "ticket");
+
+    // ── Validate delivery address ────────────────────────────────
+    // For ticket-only orders, shipping address is not needed
+    if (allTickets) {
+      // No delivery address required — use a placeholder
+    } else if (!deliveryAddress || deliveryAddress.trim().length === 0) {
+      throw new Error("delivery_address is required for physical items");
+    }
+
+    const resolvedDeliveryAddress = allTickets
+      ? "ticket - no shipping"
+      : (deliveryAddress ?? "");
+
+    // Validate payment_method against schema enum
+    const validPaymentMethods = ["qmoney", "afrimoney", "wave", "cash", "credits", "gift_card", "mixed"];
+    const resolvedPaymentMethod = paymentMethod && validPaymentMethods.includes(paymentMethod)
+      ? paymentMethod
+      : "cash";
+
+    // ─── Calculate totals ────────────────────────────────────────
+    let totalAmount = 0;
+    for (const item of orderItems) {
+      const product = products.find((p) => p.id === item.product_id);
+      if (!product) throw new Error(`Product ${item.product_id} not found`);
+      if (product.stock < item.quantity) {
+        throw new Error(`Insufficient stock for "${product.title}"`);
+      }
+      totalAmount += Number(product.price) * item.quantity;
+    }
+
+    // ─── Validate coupon (server-side) ───────────────────────────
     let couponId: string | null = null;
     let couponDiscount = 0;
 
-    if (coupon_code) {
+    if (couponCode) {
       const { data: coupon } = await serviceClient
         .from("coupons")
         .select("id, discount_type, discount_value, max_uses, uses_so_far, expires_at, minimum_order_gmd, status")
-        .eq("code", coupon_code.toUpperCase())
+        .eq("code", couponCode.toUpperCase())
         .maybeSingle();
 
       if (coupon && coupon.status === "active") {
@@ -119,30 +155,42 @@ serve(async (req) => {
 
     const discountedTotal = Math.max(totalAmount - couponDiscount, 0);
 
-    // ── Resolve affiliate link ────────────────────────────────────
+    // ─── Resolve affiliate link (only for first item with ref_code) ──
     let affiliateLinkId: string | null = null;
 
-    if (ref_code) {
-      const { data: affLink } = await serviceClient
-        .from("affiliate_links")
+    if (refCode && orderItems.length > 0) {
+      // Try matching by first product's listing
+      const { data: listings } = await serviceClient
+        .from("vendor_listings")
         .select("id")
-        .eq("short_code", ref_code)
-        .eq("listing_id", listing_id)
+        .eq("product_id", orderItems[0].product_id)
         .maybeSingle();
 
-      if (affLink) {
-        affiliateLinkId = affLink.id;
+      if (listings) {
+        const { data: affLink } = await serviceClient
+          .from("affiliate_links")
+          .select("id")
+          .eq("short_code", refCode)
+          .eq("listing_id", listings.id)
+          .maybeSingle();
+
+        if (affLink) {
+          affiliateLinkId = affLink.id;
+        }
       }
     }
 
-    // ── Create order ──────────────────────────────────────────────
+    // ─── Create order ────────────────────────────────────────────
+    const firstProduct = products[0];
+    const unitPrice = Number(firstProduct.price);
+
     const { data: order, error: orderErr } = await serviceClient
       .from("orders")
       .insert({
         customer_id: user.id,
-        listing_id,
+        listing_id: resolvedListingId,
         affiliate_link_id: affiliateLinkId,
-        quantity,
+        quantity: orderItems.reduce((s, i) => s + i.quantity, 0),
         unit_price: unitPrice,
         total_amount: totalAmount,
         discounted_total: discountedTotal,
@@ -151,25 +199,51 @@ serve(async (req) => {
         payment_status: "pending",
         coupon_id: couponId,
         coupon_discount: couponDiscount > 0 ? couponDiscount : null,
-        delivery_address,
+        delivery_address: resolvedDeliveryAddress,
       })
       .select("id, total_amount, discounted_total, coupon_discount, quantity, unit_price")
       .single();
 
     if (orderErr) throw new Error(`Failed to create order: ${orderErr.message}`);
 
+    // ─── Insert order_items ──────────────────────────────────────
+    for (const item of orderItems) {
+      const product = products.find((p) => p.id === item.product_id)!;
+      const { error: oiErr } = await serviceClient
+        .from("order_items")
+        .insert({
+          order_id: order.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: Number(product.price),
+        });
+
+      if (oiErr) {
+        console.error(`Failed to insert order_item for ${item.product_id}: ${oiErr.message}`);
+      }
+    }
+
+    // ─── Return order confirmation ───────────────────────────────
     return new Response(
       JSON.stringify({
         orderId: order.id,
-        listing_id,
-        quantity: order.quantity,
-        unit_price: order.unit_price,
+        items: orderItems.map((item) => {
+          const product = products.find((p) => p.id === item.product_id)!;
+          return {
+            product_id: item.product_id,
+            title: product.title,
+            quantity: item.quantity,
+            price: Number(product.price),
+            product_type: product.product_type ?? "physical",
+          };
+        }),
         total_amount: order.total_amount,
         discounted_total: order.discounted_total,
         coupon_discount: order.coupon_discount || 0,
-        coupon_code: coupon_code || null,
+        coupon_code: couponCode || null,
         affiliate_link_id: affiliateLinkId,
         payment_status: "pending",
+        is_ticket_order: allTickets,
       }),
       {
         status: 201,

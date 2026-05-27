@@ -731,6 +731,44 @@ CREATE INDEX idx_product_reviews_product   ON public.product_reviews(product_id)
 CREATE INDEX idx_product_reviews_user      ON public.product_reviews(user_id);
 CREATE INDEX idx_product_reviews_rating    ON public.product_reviews(rating);
 
+-- ── Table: ticket_scan_ins ────────────────────────────────
+
+CREATE TABLE public.ticket_scan_ins (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id         UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  scanned_by         UUID NOT NULL REFERENCES public.users(id),
+  ticket_identifier  TEXT,
+  quantity           INTEGER NOT NULL DEFAULT 1 CHECK (quantity >= 1),
+  note               TEXT,
+  scanned_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE  public.ticket_scan_ins IS 'Tracks when ticket products are scanned/admitted at events';
+COMMENT ON COLUMN public.ticket_scan_ins.product_id IS 'The ticket product being admitted';
+COMMENT ON COLUMN public.ticket_scan_ins.scanned_by IS 'Vendor/admin who scanned the ticket';
+COMMENT ON COLUMN public.ticket_scan_ins.ticket_identifier IS 'Optional: order reference, QR code, ticket number';
+COMMENT ON COLUMN public.ticket_scan_ins.quantity IS 'Number of tickets admitted in this scan (default 1)';
+COMMENT ON COLUMN public.ticket_scan_ins.note IS 'Optional note about the scan-in';
+
+ALTER TABLE public.ticket_scan_ins ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "ticket_scan_ins: vendor read own" ON public.ticket_scan_ins
+  FOR SELECT USING (
+    product_id IN (SELECT id FROM public.products WHERE submitted_by_vendor = auth.uid())
+  );
+
+CREATE POLICY "ticket_scan_ins: vendor insert own" ON public.ticket_scan_ins
+  FOR INSERT WITH CHECK (
+    scanned_by = auth.uid()
+    AND product_id IN (SELECT id FROM public.products WHERE submitted_by_vendor = auth.uid())
+  );
+
+CREATE POLICY "ticket_scan_ins: admin read all" ON public.ticket_scan_ins
+  FOR SELECT USING (is_admin_or_above());
+
+CREATE INDEX idx_ticket_scan_ins_product   ON public.ticket_scan_ins(product_id);
+CREATE INDEX idx_ticket_scan_ins_scanned   ON public.ticket_scan_ins(scanned_at DESC);
+
 -- ── Table: notifications_log ───────────────────────────────
 
 CREATE TABLE public.notifications_log (

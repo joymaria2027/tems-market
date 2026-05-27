@@ -1,7 +1,8 @@
 
 -- Create product-images storage bucket
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('product-images', 'product-images', true);
+VALUES ('product-images', 'product-images', true)
+ON CONFLICT (id) DO NOTHING;
 
 -- Allow authenticated users to upload images
 CREATE POLICY "Authenticated users can upload product images"

@@ -3,10 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { ShoppingBag, ArrowLeft, Building2, Loader2, CheckCircle } from "lucide-react";
+import { ShoppingBag, ArrowLeft, Building2, Loader2, CheckCircle, Ticket, MapPin, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { getStoredRefCode, clearStoredRefCode } from "@/hooks/useReferralTracker";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -18,6 +19,10 @@ const Checkout = () => {
   const [loading, setLoading] = useState(false);
   const [orderPhase, setOrderPhase] = useState(0);
   const { formatPrice } = useCurrency();
+
+  // ─── Detect ticket-only orders ───────────────────────────────
+  const allTickets = items.length > 0 && items.every((i) => i.product_type === "ticket");
+  const anyTickets = items.some((i) => i.product_type === "ticket");
 
   // Stage 1: Anticipation — cycle through processing phases
   useEffect(() => {
@@ -105,7 +110,24 @@ const Checkout = () => {
       } catch { /* non-critical */ }
 
       clearCart();
-      navigate("/orders/confirmation", { state: data });
+      navigate("/orders/confirmation", {
+        state: {
+          orderId: data.orderId,
+          items: data.items.map((item: any) => ({
+            product_id: item.product_id,
+            title: item.title,
+            quantity: item.quantity,
+            price: item.price,
+            product_type: item.product_type || "physical",
+          })),
+          subtotal: data.total_amount,
+          discount: data.coupon_discount || 0,
+          total: data.discounted_total || data.total_amount,
+          couponCode: data.coupon_code || undefined,
+          paymentMethod: "cash",
+          isTicketOrder: data.is_ticket_order || false,
+        },
+      });
     } catch (err: any) {
       toast.error(err.message || "Failed to place order.");
     } finally {
@@ -133,7 +155,15 @@ const Checkout = () => {
                     <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
+                    <p className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
+                      {item.title}
+                      {item.product_type === "ticket" && (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1 gap-0.5">
+                          <Ticket className="h-2.5 w-2.5" />
+                          Ticket
+                        </Badge>
+                      )}
+                    </p>
                     <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                   </div>
                   <p className="text-sm font-semibold text-foreground">{formatPrice(item.price * item.quantity)}</p>
@@ -163,8 +193,49 @@ const Checkout = () => {
             </div>
           </div>
 
-          {/* Payment: Bank Transfer Only */}
+          {/* ── Shipping / Ticket Delivery Notice ──────────── */}
           <div className="md:col-span-2 space-y-4">
+            {allTickets ? (
+              <div className="bg-card rounded-xl border border-border p-6">
+                <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <Ticket className="h-4 w-4 text-primary" />
+                  Ticket Delivery
+                </h2>
+                <div className="bg-primary/5 rounded-lg border border-primary/20 p-4 text-sm space-y-2">
+                  <p className="text-foreground font-medium">
+                    No shipping needed 🎫
+                  </p>
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    Your tickets will be available in the order confirmation. Each ticket
+                    includes a QR code for entry. Show your QR code at the venue for
+                    admission.
+                  </p>
+                  <div className="flex items-center gap-4 pt-2 text-xs text-muted-foreground border-t border-primary/10 mt-2">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      Show QR at venue
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Valid on event date
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : anyTickets ? (
+              <div className="bg-card rounded-xl border border-border p-6">
+                <h2 className="font-semibold text-foreground mb-2">Shipping & Delivery</h2>
+                <div className="bg-muted rounded-lg p-4 text-sm text-muted-foreground">
+                  <p>
+                    Your order contains both physical and ticket items. Physical items
+                    will require a delivery address.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Payment: Bank Transfer Only */}
+
             <div className="bg-card rounded-xl border border-border p-6 space-y-4">
               <h2 className="font-semibold text-foreground">Payment Method</h2>
 

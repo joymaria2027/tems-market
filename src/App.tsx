@@ -22,6 +22,7 @@ import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
 import VendorDashboard from "./pages/vendor/VendorDashboard";
 import VendorProducts from "./pages/vendor/VendorProducts";
 import VendorUpload from "./pages/vendor/VendorUpload";
+import VendorTickets from "./pages/vendor/VendorTickets";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProducts from "./pages/admin/AdminProducts";
 import AdminGiftCards from "./pages/admin/AdminGiftCards";
@@ -77,6 +78,7 @@ const App = () => (
             <Route path="/vendor/dashboard" element={<VendorDashboard />} />
             <Route path="/vendor/products" element={<VendorProducts />} />
             <Route path="/vendor/upload" element={<VendorUpload />} />
+            <Route path="/vendor/tickets" element={<VendorTickets />} />
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
             <Route path="/admin/products" element={<AdminGuard><AdminProducts /></AdminGuard>} />

@@ -2,21 +2,32 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle, ShoppingBag, Share2, ArrowRight, Sparkles } from "lucide-react";
+import { CheckCircle, ShoppingBag, ArrowRight, Sparkles, Ticket, Download, Loader2 } from "lucide-react";
 import { formatGMD } from "@/lib/utils/currency";
+import { supabase } from "@/integrations/supabase/client";
 import Confetti from "@/components/Confetti";
 import CountUp from "@/components/CountUp";
 import ShareCard from "@/components/ShareCard";
 
+interface OrderItem {
+  product_id: string;
+  title: string;
+  quantity: number;
+  price: number;
+  product_type?: string;
+}
+
 interface OrderState {
   orderId: string;
-  items: { title: string; quantity: number; price: number }[];
+  items: OrderItem[];
   subtotal: number;
   discount: number;
   total: number;
   couponCode?: string;
   paymentMethod: string;
+  isTicketOrder?: boolean;
 }
 
 const OrderConfirmation = () => {
@@ -25,6 +36,9 @@ const OrderConfirmation = () => {
   const [showConfetti, setShowConfetti] = useState(false);
   const [entered, setEntered] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [qrSvgs, setQrSvgs] = useState<Record<string, string>>({});
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
 
   // Stage 1 → Stage 2 transition: delay the reveal for anticipation
   useEffect(() => {
@@ -42,6 +56,62 @@ const OrderConfirmation = () => {
       clearTimeout(shareTimer);
     };
   }, [order]);
+
+  // ─── Fetch QR codes for ticket items ────────────────────────
+  useEffect(() => {
+    if (!order || !order.items || !order.orderId) return;
+
+    const ticketItems = order.items.filter((i) => i.product_type === "ticket");
+    if (ticketItems.length === 0) return;
+
+    setQrLoading(true);
+    setQrError(null);
+
+    const fetchQrs = async () => {
+      const results: Record<string, string> = {};
+
+      for (const item of ticketItems) {
+        try {
+          const { data, error } = await supabase.functions.invoke(
+            "generate-ticket-qr",
+            {
+              body: {
+                orderId: order.orderId,
+                productId: item.product_id,
+                productTitle: item.title,
+                format: "svg",
+              },
+            }
+          );
+
+          if (error) throw error;
+          // Response is raw SVG if format=svg
+          if (typeof data === "string") {
+            results[item.product_id] = data;
+          }
+        } catch (err: any) {
+          console.error(`QR failed for ${item.title}:`, err);
+          setQrError(`Could not generate QR for "${item.title}"`);
+        }
+      }
+
+      setQrSvgs(results);
+      setQrLoading(false);
+    };
+
+    const timer = setTimeout(fetchQrs, 1000); // Delay to let the ceremony settle
+    return () => clearTimeout(timer);
+  }, [order]);
+
+  const handleDownloadQr = (svg: string, filename: string) => {
+    const blob = new Blob([svg], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (!order) {
     return (
@@ -111,15 +181,21 @@ const OrderConfirmation = () => {
             {order.items.map((item, i) => (
               <div
                 key={i}
-                className={`flex justify-between text-sm transition-all duration-500`}
+                className={`flex justify-between text-sm transition-all duration-500 items-center`}
                 style={{
                   animation: entered
                     ? `fadeSlideIn 0.4s ease-out ${0.6 + i * 0.1}s both`
                     : "none",
                 }}
               >
-                <span className="text-foreground">
+                <span className="text-foreground flex items-center gap-2">
                   {item.title} <span className="text-muted-foreground">× {item.quantity}</span>
+                  {item.product_type === "ticket" && (
+                    <Badge variant="outline" className="text-[10px] h-4 px-1 gap-0.5">
+                      <Ticket className="h-2.5 w-2.5" />
+                      Ticket
+                    </Badge>
+                  )}
                 </span>
                 <span className="font-medium text-foreground">{formatGMD(item.price * item.quantity)}</span>
               </div>
@@ -168,6 +244,82 @@ const OrderConfirmation = () => {
               </div>
             </div>
           </div>
+
+          {/* ── Ticket QR Codes ──────────────────────────────── */}
+          {order.items.some((i) => i.product_type === "ticket") && (
+            <div className="border-t border-border pt-5 mt-1">
+              <div className="flex items-center gap-2 mb-4">
+                <Ticket className="h-4 w-4 text-primary" />
+                <p className="font-semibold text-foreground text-sm">Your Tickets</p>
+                {qrLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+              </div>
+
+              {qrError && (
+                <p className="text-xs text-amber-600 mb-3">{qrError}</p>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {order.items
+                  .filter((i) => i.product_type === "ticket")
+                  .map((item) => {
+                    const svg = qrSvgs[item.product_id];
+                    return (
+                      <div
+                        key={item.product_id}
+                        className="bg-white rounded-xl border border-border overflow-hidden shadow-sm"
+                      >
+                        {svg ? (
+                          <>
+                            <div
+                              className="w-full flex items-center justify-center bg-white p-3"
+                              dangerouslySetInnerHTML={{ __html: svg }}
+                            />
+                            <div className="p-3 border-t border-border/50 flex items-center justify-between">
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-foreground truncate">
+                                  {item.title}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  × {item.quantity} ticket{item.quantity > 1 ? "s" : ""}
+                                </p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 gap-1 text-xs shrink-0"
+                                onClick={() =>
+                                  handleDownloadQr(
+                                    svg,
+                                    `ticket-${item.title
+                                      .toLowerCase()
+                                      .replace(/\s+/g, "-")}`
+                                  )
+                                }
+                              >
+                                <Download className="h-3 w-3" />
+                                Save
+                              </Button>
+                            </div>
+                          </>
+                        ) : qrLoading ? (
+                          <div className="flex items-center justify-center h-48">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center h-48 text-muted-foreground text-xs">
+                            QR unavailable
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+
+              <p className="text-[10px] text-muted-foreground mt-3 text-center">
+                Show this QR code at the venue for admission. You can also download each ticket.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Stage 3: Share prompt — afterglow */}

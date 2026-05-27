@@ -103,6 +103,7 @@ const ProductDetail = () => {
       image: images[0],
       vendor_name: vendorName,
       stock: product.stock,
+      product_type: (product as any).product_type || "physical",
     });
     toast({ title: "Added to cart", description: product.title });
   };

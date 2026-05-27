@@ -6,7 +6,7 @@ import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Package } from "lucide-react";
+import { Plus, Package, Ticket } from "lucide-react";
 import VendorVerificationBanner from "@/components/VendorVerificationBanner";
 
 const statusColor: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -57,12 +57,16 @@ const VendorDashboard = () => {
 
   return (
     <Layout>
-      <div className="container py-10">
-        <div className="flex items-center justify-between mb-8">
+      <div className="container py-10">          <div className="flex items-center justify-between mb-8">
           <h1 className="font-display text-3xl font-bold text-foreground">Vendor Dashboard</h1>
-          <Button asChild>
-            <Link to="/vendor/upload"><Plus className="mr-2 h-4 w-4" /> Upload Product</Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/vendor/tickets"><Ticket className="mr-2 h-4 w-4" /> Tickets</Link>
+            </Button>
+            <Button asChild>
+              <Link to="/vendor/upload"><Plus className="mr-2 h-4 w-4" /> Upload Product</Link>
+            </Button>
+          </div>
         </div>
 
         {profile && (

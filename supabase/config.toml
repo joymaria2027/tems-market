@@ -33,3 +33,6 @@ verify_jwt = false
 
 [functions.create-short-url]
 verify_jwt = false
+
+[functions.generate-ticket-qr]
+verify_jwt = false
