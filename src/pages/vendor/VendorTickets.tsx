@@ -25,6 +25,7 @@ import {
   Search,
   Package,
 } from "lucide-react";
+import { useVendorTicketPermission } from "@/hooks/useVendorTicketPermission";
 import { Link } from "react-router-dom";
 
 // ─── Types ─────────────────────────────────────────────────
@@ -97,6 +98,7 @@ const VendorTickets = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { canCreateTickets, isLoading: permLoading } = useVendorTicketPermission();
 
   // Scan-in form state
   const [selectedProductId, setSelectedProductId] = useState<string>("");
@@ -264,6 +266,45 @@ const VendorTickets = () => {
     0
   );
   const aggRemaining = totalCapacity - totalScanned;
+
+  // ─── Permission gate ──────────────────────────────────────
+
+  if (permLoading) {
+    return (
+      <Layout>
+        <div className="container py-20 text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-muted-foreground/50 mx-auto" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!canCreateTickets) {
+    return (
+      <Layout>
+        <div className="container py-20 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center mx-auto mb-4">
+            <Ticket className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+          </div>
+          <h1 className="font-display text-2xl font-bold text-foreground mb-2">
+            Access Restricted
+          </h1>
+          <p className="text-muted-foreground max-w-md mx-auto mb-1">
+            You don't have permission to create ticket products or manage admissions.
+          </p>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
+            Contact the superadmin to enable ticket creation for your account.
+          </p>
+          <Button asChild variant="outline">
+            <Link to="/vendor/dashboard">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Dashboard
+            </Link>
+          </Button>
+        </div>
+      </Layout>
+    );
+  }
 
   // ─── Render ───────────────────────────────────────────────
 

@@ -1040,6 +1040,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           business_name: string
+          can_create_tickets: boolean
           category: string
           created_at: string
           id: string
@@ -1056,6 +1057,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           business_name: string
+          can_create_tickets?: boolean
           category: string
           created_at?: string
           id?: string
@@ -1074,6 +1076,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           business_name?: string
+          can_create_tickets?: boolean
           category?: string
           created_at?: string
           id?: string

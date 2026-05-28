@@ -14,7 +14,8 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Upload, X, ImagePlus, Loader2, Ticket, Calendar, MapPin } from "lucide-react";
+import { Upload, X, ImagePlus, Loader2, Ticket, Calendar, MapPin, ShieldBan } from "lucide-react";
+import { useVendorTicketPermission } from "@/hooks/useVendorTicketPermission";
 
 const TICKET_CATEGORY_SLUGS = new Set([
   "food-ticket",
@@ -28,6 +29,7 @@ const VendorUpload = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { canCreateTickets } = useVendorTicketPermission();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -193,11 +195,19 @@ const VendorUpload = () => {
             <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setEventDate(""); setVenue(""); setValidFrom(""); setValidTo(""); setTicketTerms(""); }}>
               <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
               <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
+                {categories
+                  .filter((c) => canCreateTickets || !TICKET_CATEGORY_SLUGS.has(c.slug))
+                  .map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
               </SelectContent>
             </Select>
+            {!canCreateTickets && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                <ShieldBan className="h-3 w-3" />
+                Ticket categories require superadmin permission
+              </p>
+            )}
           </div>
 
           {/* Ticket-specific fields */}

@@ -5,7 +5,7 @@ import {
   ShieldCheck, Users, DollarSign, ShoppingBag, Store, TrendingUp, TrendingDown,
   ChevronRight, Plus, Mail, UserPlus, Key, Settings, ExternalLink,
   CheckCircle, AlertTriangle, XCircle, Eye, Search, Copy,
-  Ban, Clock, UserCog, BarChart3, Package
+  Ban, Clock, UserCog, BarChart3, Package, Ticket
 } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -131,6 +132,18 @@ const SuperAdminDashboard = () => {
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showSettingsEditor, setShowSettingsEditor] = useState(false);
 
+  // --- Vendors list with ticket permissions ---
+  interface VendorItem {
+    id: string;
+    user_id: string;
+    full_name: string | null;
+    email: string | null;
+    business_name: string | null;
+    can_create_tickets: boolean;
+  }
+
+  const [vendors, setVendors] = useState<VendorItem[]>([]);
+
   // --- Admins list (mock for now) ---
   const [admins, setAdmins] = useState<AdminItem[]>([
     { id: "1", full_name: "Mariama Bah", email: "mariama@temsmarket.gm", phone: "+220 999 0002", status: "active", created_at: "2025-02-01" },
@@ -150,6 +163,65 @@ const SuperAdminDashboard = () => {
     },
     refetchInterval: 30_000,
   });
+
+  // --- Fetch vendors with ticket permissions ---
+  useEffect(() => {
+    const fetchVendors = async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(`
+          id, user_id, full_name, email,
+          vendor_profiles!left (
+            can_create_tickets, business_name
+          )
+        `)
+        .eq("role", "vendor")
+        .order("full_name");
+
+      if (!error && data) {
+        const mapped: VendorItem[] = data.map((p: any) => ({
+          id: p.id,
+          user_id: p.user_id,
+          full_name: p.full_name,
+          email: p.email,
+          business_name: p.vendor_profiles?.business_name ?? null,
+          can_create_tickets: p.vendor_profiles?.can_create_tickets ?? false,
+        }));
+        setVendors(mapped);
+      }
+    };
+    fetchVendors();
+  }, []);
+
+  // --- Toggle ticket permission ---
+  const [togglingTicketPerm, setTogglingTicketPerm] = useState<string | null>(null);
+
+  const toggleTicketPermission = async (vendorId: string, currentValue: boolean) => {
+    setTogglingTicketPerm(vendorId);
+    try {
+      const { error } = await supabase
+        .from("vendor_profiles")
+        .update({ can_create_tickets: !currentValue })
+        .eq("user_id", vendorId);
+
+      if (error) throw error;
+
+      setVendors((prev) =>
+        prev.map((v) =>
+          v.user_id === vendorId ? { ...v, can_create_tickets: !currentValue } : v
+        )
+      );
+
+      toast.success(
+        `${!currentValue ? "Enabled" : "Disabled"} ticket creation for vendor`
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to update permission";
+      toast.error(message);
+    } finally {
+      setTogglingTicketPerm(null);
+    }
+  };
 
   // --- Fetch platform settings ---
   useEffect(() => {
@@ -354,6 +426,51 @@ const SuperAdminDashboard = () => {
                   View All Users <ExternalLink className="h-3 w-3" />
                 </Link>
               </Button>
+            </div>
+
+            {/* Vendor Ticket Permissions */}
+            <div className="bg-card rounded-xl border border-border shadow-sm p-5 md:p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Ticket className="h-5 w-5 text-primary" />
+                <h2 className="font-display text-base font-bold text-foreground">Ticket Permissions</h2>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">
+                Grant vendors permission to create ticket-type products and access the ticket management dashboard.
+              </p>
+
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {vendors.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No vendors registered yet.</p>
+                ) : (
+                  vendors.map((v) => (
+                    <div
+                      key={v.id}
+                      className="flex items-center justify-between gap-3 p-3 rounded-lg bg-secondary/30 border border-border/50"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {v.full_name || v.business_name || "Unnamed Vendor"}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {v.business_name ? `${v.business_name} · ` : ""}{v.email || "No email"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] text-muted-foreground">
+                          Tickets
+                        </span>
+                        <Switch
+                          checked={v.can_create_tickets}
+                          disabled={togglingTicketPerm === v.user_id}
+                          onCheckedChange={() =>
+                            toggleTicketPermission(v.user_id, v.can_create_tickets)
+                          }
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
             {/* Platform Settings */}

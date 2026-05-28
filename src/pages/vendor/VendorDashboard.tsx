@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Package, Ticket } from "lucide-react";
 import VendorVerificationBanner from "@/components/VendorVerificationBanner";
+import { useVendorTicketPermission } from "@/hooks/useVendorTicketPermission";
 
 const statusColor: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   approved: "default",
@@ -18,6 +19,7 @@ const statusColor: Record<string, "default" | "secondary" | "destructive" | "out
 
 const VendorDashboard = () => {
   const { user, profile } = useAuth();
+  const { canCreateTickets } = useVendorTicketPermission();
 
   const { data: vendorProfile } = useQuery({
     queryKey: ["vendor-profile-status", user?.id],
@@ -60,9 +62,11 @@ const VendorDashboard = () => {
       <div className="container py-10">          <div className="flex items-center justify-between mb-8">
           <h1 className="font-display text-3xl font-bold text-foreground">Vendor Dashboard</h1>
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link to="/vendor/tickets"><Ticket className="mr-2 h-4 w-4" /> Tickets</Link>
-            </Button>
+            {canCreateTickets && (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/vendor/tickets"><Ticket className="mr-2 h-4 w-4" /> Tickets</Link>
+              </Button>
+            )}
             <Button asChild>
               <Link to="/vendor/upload"><Plus className="mr-2 h-4 w-4" /> Upload Product</Link>
             </Button>
