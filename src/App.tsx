@@ -36,6 +36,7 @@ import AdminApplicationReview from "./pages/admin/AdminApplicationReview";
 import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminGuard from "./components/AdminGuard";
 import SuperAdminGuard from "./components/SuperAdminGuard";
+import VendorGuard from "./components/VendorGuard";
 import AdminLogin from "./pages/admin/AdminLogin";
 import Affiliate from "./pages/Affiliate";
 import Login from "./pages/Login";
@@ -75,10 +76,10 @@ const App = () => (
             <Route path="/update-password" element={<UpdatePassword />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/select-role" element={<SelectRole />} />
-            <Route path="/vendor/dashboard" element={<VendorDashboard />} />
-            <Route path="/vendor/products" element={<VendorProducts />} />
-            <Route path="/vendor/upload" element={<VendorUpload />} />
-            <Route path="/vendor/tickets" element={<VendorTickets />} />
+            <Route path="/vendor/dashboard" element={<VendorGuard><VendorDashboard /></VendorGuard>} />
+            <Route path="/vendor/products" element={<VendorGuard><VendorProducts /></VendorGuard>} />
+            <Route path="/vendor/upload" element={<VendorGuard><VendorUpload /></VendorGuard>} />
+            <Route path="/vendor/tickets" element={<VendorGuard><VendorTickets /></VendorGuard>} />
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
             <Route path="/admin/products" element={<AdminGuard><AdminProducts /></AdminGuard>} />
