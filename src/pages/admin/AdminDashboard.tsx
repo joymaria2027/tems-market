@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   DollarSign, ShoppingBag, Package, Store, Users, TrendingUp, TrendingDown,
@@ -14,6 +15,7 @@ import {
 } from "@/data/mockAdminData";
 import { formatGMD } from "@/lib/utils/currency";
 import { revenueChartUrl } from "@/lib/quickChart";
+import { supabase } from "@/integrations/supabase/client";
 
 interface StatCardProps {
   label: string;
@@ -59,6 +61,23 @@ const quickActions = [
 
 const AdminDashboard = () => {
   const stats = mockAdminStats;
+
+  // --- Fetch pending vendor applications count ---
+  const [pendingApps, setPendingApps] = useState(0);
+  useEffect(() => {
+    const fetchPending = async () => {
+      const { count, error } = await supabase
+        .from("vendor_applications")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending");
+      if (!error && count !== null) {
+        setPendingApps(count);
+      }
+    };
+    fetchPending();
+    const interval = setInterval(fetchPending, 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const statCards: StatCardProps[] = [
     {
@@ -274,6 +293,11 @@ const AdminDashboard = () => {
                       <action.icon className={`h-4 w-4 ${action.color} group-hover:text-primary transition-colors`} />
                     </div>
                     <span className="text-sm font-medium text-foreground flex-1">{action.label}</span>
+                    {action.label === "Manage Vendors" && pendingApps > 0 && (
+                      <Badge variant="default" className="text-[10px] h-5 px-1.5 bg-orange-500 hover:bg-orange-600">
+                        {pendingApps} pending
+                      </Badge>
+                    )}
                     <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   </Link>
                 ))}

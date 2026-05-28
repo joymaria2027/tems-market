@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/layout/Layout";
+import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ interface NotificationLog {
   message: string;
   twilio_sid: string | null;
   sent_at: string;
+  read: boolean;
   meta_message_id?: string | null;
   at_message_id?: string | null;
 }
@@ -41,6 +43,7 @@ const typeBadge: Record<string, "default" | "secondary" | "outline" | "destructi
   order_update: "outline",
   commission: "outline",
   gift_card: "secondary",
+  new_vendor_application: "default",
 };
 
 const channelIcon = (ch: string) =>
@@ -49,11 +52,28 @@ const channelIcon = (ch: string) =>
     : <Smartphone className="h-3.5 w-3.5" />;
 
 const AdminNotifications = () => {
+  const { user } = useAuth();
+  const qc = useQueryClient();
   const [page, setPage] = useState(0);
   const [typeFilter, setTypeFilter] = useState("all");
   const [channelFilter, setChannelFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<NotificationLog | null>(null);
+
+  // Mark all unread notifications as read when the page loads
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("notifications_log")
+      .update({ read: true })
+      .eq("read", false)
+      .or(`user_id.eq.${user.id},user_id.is.null`)
+      .then(() => {
+        // Invalidate notifications query to refresh header badge
+        qc.invalidateQueries({ queryKey: ["admin-notifications"] });
+      })
+      .catch((err) => console.error("Failed to mark notifications as read:", err));
+  }, [user]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-notifications", page, typeFilter, channelFilter, search],
@@ -114,6 +134,7 @@ const AdminNotifications = () => {
               <SelectItem value="order_update">Order Update</SelectItem>
               <SelectItem value="commission">Commission</SelectItem>
               <SelectItem value="gift_card">Gift Card</SelectItem>
+              <SelectItem value="new_vendor_application">New Application</SelectItem>
             </SelectContent>
           </Select>
           <Select value={channelFilter} onValueChange={(v) => { setChannelFilter(v); setPage(0); }}>

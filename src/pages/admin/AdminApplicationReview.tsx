@@ -103,10 +103,39 @@ const AdminApplicationReview = () => {
       if (error) throw error;
       return { inviteToken };
     },
-    onSuccess: ({ inviteToken }) => {
+    onSuccess: async ({ inviteToken }) => {
       const link = `${window.location.origin}/vendor-invite/${inviteToken}`;
       navigator.clipboard.writeText(link);
-      toast({ title: "Approved!", description: "Invite link copied. Expires in 7 days." });
+
+      // Send email notification to vendor via send-email Edge Function
+      const vendorEmail = app?.extra_data?.email;
+      if (vendorEmail) {
+        supabase.functions.invoke("send-email", {
+          body: {
+            type: "vendor_approved",
+            to: vendorEmail,
+            businessName: app?.business_name || "Your Business",
+            inviteLink: link,
+            createdBy: "Admin",
+          },
+        }).catch((err) => console.error("Failed to send approval email:", err));
+      }
+
+      // Send SMS/WhatsApp notification via send-notification Edge Function
+      if (app?.phone) {
+        supabase.functions.invoke("send-notification", {
+          body: {
+            type: "new_vendor",
+            phone: app.phone,
+            link,
+          },
+        }).catch((err) => console.error("Failed to send approval SMS:", err));
+      }
+
+      toast({
+        title: "Approved!",
+        description: "Invite link copied. Notifications sent to vendor.",
+      });
       qc.invalidateQueries({ queryKey: ["admin-vendor-application", applicationId] });
       qc.invalidateQueries({ queryKey: ["admin-vendor-applications"] });
     },

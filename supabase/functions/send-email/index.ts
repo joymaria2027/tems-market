@@ -66,12 +66,21 @@ interface GiftCardDeliveryData {
   value: number;
 }
 
+interface VendorApprovedData {
+  type: "vendor_approved";
+  to: string;
+  businessName: string;
+  inviteLink: string;
+  createdBy: string;
+}
+
 type EmailPayload =
   | OrderConfirmationData
   | NewSaleAlertData
   | ProductApprovedData
   | ProductRejectedData
-  | GiftCardDeliveryData;
+  | GiftCardDeliveryData
+  | VendorApprovedData;
 
 function getServiceClient() {
   return createClient(
@@ -246,6 +255,31 @@ function buildGiftCardHtml(data: GiftCardDeliveryData): { subject: string; html:
   };
 }
 
+function buildVendorApprovedHtml(data: VendorApprovedData): { subject: string; html: string } {
+  return {
+    subject: `Tems Market - Welcome ${esc(data.businessName)}! Vendor Application Approved`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
+        <div style="background:#16a34a;padding:24px;text-align:center">
+          <h1 style="color:#fff;margin:0;font-size:24px">Welcome to Tems Market! 🎉</h1>
+        </div>
+        <div style="padding:24px">
+          <p>Congratulations <strong>${esc(data.businessName)}</strong>,</p>
+          <p>Your vendor application has been reviewed and <strong>approved</strong> by <strong>${esc(data.createdBy)}</strong>!</p>
+          <p>You're now one step away from joining the Tems Market marketplace.</p>
+          <p style="margin-top:20px">Click the button below to create your vendor account and set up your shop:</p>
+          <div style="text-align:center;margin:24px 0">
+            <a href="${esc(data.inviteLink)}"
+               style="display:inline-block;background:#F97316;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:16px;font-weight:bold">
+              Accept Invitation →
+            </a>
+          </div>
+          <p style="color:#666;font-size:13px">This invite link will expire in 7 days. If you have any questions, reply to this email or contact support@temsmarket.com.</p>
+        </div>
+      </div>`,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -353,6 +387,15 @@ serve(async (req) => {
 
         to = payload.to;
         const result = buildGiftCardHtml(payload);
+        subject = result.subject;
+        html = result.html;
+        break;
+      }
+      case "vendor_approved": {
+        if (!isAdmin) throw new Error("Unauthorized");
+
+        to = payload.to;
+        const result = buildVendorApprovedHtml(payload);
         subject = result.subject;
         html = result.html;
         break;

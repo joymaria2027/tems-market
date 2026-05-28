@@ -142,6 +142,7 @@ interface FormData {
   // Step 1 — Business
   businessName: string;
   businessCategory: string;
+  businessCategoryOther: string;
   businessDescription: string;
   specificItems: string;
   location: string;
@@ -184,6 +185,7 @@ const STEPS = [
 const INITIAL_FORM: FormData = {
   businessName: "",
   businessCategory: "",
+  businessCategoryOther: "",
   businessDescription: "",
   specificItems: "",
   location: "",
@@ -245,6 +247,7 @@ const ApplyAsVendor = () => {
     if (s === 1) {
       if (!form.businessName.trim()) errs.businessName = "Business name is required";
       if (!form.businessCategory) errs.businessCategory = "Select a business category";
+      if (form.businessCategory === "other" && !form.businessCategoryOther.trim()) errs.businessCategoryOther = "Please specify your business type";
       if (!form.businessDescription.trim()) errs.businessDescription = "Tell us about your business";
       if (!form.specificItems.trim()) errs.specificItems = "Describe what you'll sell";
       if (!form.location.trim()) errs.location = "Location is required";
@@ -314,8 +317,7 @@ const ApplyAsVendor = () => {
 
     try {
       const { error } = await supabase.from("vendor_applications").insert({
-        business_name: form.businessName.trim(),
-        category: form.businessCategory,
+        business_name: form.businessName.trim(),          category: form.businessCategory,
         phone: form.phone.trim(),
         description: form.businessDescription.trim(),
         location: form.location.trim(),
@@ -337,11 +339,24 @@ const ApplyAsVendor = () => {
           sponsoredInterest: form.sponsoredInterest,
           photoReadiness: form.photoReadiness,
           language: form.language,
+          customCategory: form.businessCategory === "other" ? form.businessCategoryOther.trim() : null,
           additionalNotes: form.additionalNotes.trim(),
         },
       });
 
       if (error) throw error;
+
+      // ── Fire-and-forget: notify admins ────────────────
+      supabase.functions.invoke("notify-new-application", {
+        body: {
+          businessName: form.businessName.trim(),
+          category: form.businessCategory,
+          phone: form.phone.trim(),
+          description: form.businessDescription.trim(),
+        },
+      }).catch((err) => {
+        console.error("Failed to notify admins:", err);
+      });
 
       setSubmitted(true);
       // Trigger ceremony entrance after state settles
@@ -565,6 +580,24 @@ const ApplyAsVendor = () => {
                     <p className="text-xs text-destructive">{errors.businessCategory}</p>
                   )}
                 </div>
+
+                {form.businessCategory === "other" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="businessCategoryOther">
+                      Please specify your business type <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="businessCategoryOther"
+                      placeholder="e.g. Photography, Event Planning, Farming"
+                      value={form.businessCategoryOther}
+                      onChange={(e) => updateField("businessCategoryOther", e.target.value)}
+                      className={errors.businessCategoryOther ? "border-destructive" : ""}
+                    />
+                    {errors.businessCategoryOther && (
+                      <p className="text-xs text-destructive">{errors.businessCategoryOther}</p>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="businessDescription">

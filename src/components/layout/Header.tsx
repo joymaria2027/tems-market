@@ -1,15 +1,68 @@
 import { Link } from "react-router-dom";
-import { ShoppingCart, User, Search, Menu, X, LogOut } from "lucide-react";
+import { ShoppingCart, User, Search, Menu, X, LogOut, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import CurrencySelector from "@/components/CurrencySelector";
+import { supabase } from "@/integrations/supabase/client";
+import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, profile, signOut } = useAuth();
   const { openCart, itemCount } = useCart();
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  // Real-time unread notification count via Supabase Realtime
+  useEffect(() => {
+    if (!user || (profile?.role !== "admin" && profile?.role !== "superadmin")) return;
+
+    const fetchUnread = async () => {
+      const { count, error } = await supabase
+        .from("notifications_log")
+        .select("*", { count: "exact", head: true })
+        .eq("read", false)
+        .or(`user_id.eq.${user.id},user_id.is.null`);
+      if (!error && count !== null) {
+        setUnreadNotifications(count);
+      }
+    };
+
+    // Fetch initial count
+    fetchUnread();
+
+    // Re-fetch when tab becomes visible (e.g. after marking as read on notifications page)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") fetchUnread();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    // Subscribe to INSERT events on notifications_log for instant increment
+    const channel = supabase
+      .channel("notifications-unread")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications_log",
+        },
+        (payload: RealtimePostgresChangesPayload<{ user_id: string | null }>) => {
+          const newRow = payload.new as { user_id: string | null } | null;
+          // Only increment if the notification is for this user or global
+          if (newRow && (newRow.user_id === user.id || newRow.user_id === null)) {
+            setUnreadNotifications((prev) => prev + 1);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [user, profile?.role]);
 
   return (
     <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-md shadow-nav border-b border-border">
@@ -43,6 +96,18 @@ const Header = () => {
           <Button variant="ghost" size="icon" aria-label="Search">
             <Search className="h-5 w-5" />
           </Button>
+          {(profile?.role === "admin" || profile?.role === "superadmin") && (
+            <Link to="/admin/notifications">
+              <Button variant="ghost" size="icon" aria-label="Notifications" className="relative">
+                <Bell className="h-5 w-5" />
+                {unreadNotifications > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+                    {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                  </span>
+                )}
+              </Button>
+            </Link>
+          )}
           <Button variant="ghost" size="icon" aria-label="Cart" className="relative" onClick={openCart}>
             <ShoppingCart className="h-5 w-5" />
             {itemCount > 0 && (
@@ -98,6 +163,17 @@ const Header = () => {
             <Link to="/vendor/dashboard" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Vendor Dashboard</Link>
           ) : (
             <Link to="/become-a-vendor" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Sell on Tems Market</Link>
+          )}
+          {(profile?.role === "admin" || profile?.role === "superadmin") && (
+            <Link to="/admin/notifications" onClick={() => setMobileOpen(false)} className="flex items-center gap-2 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+              <Bell className="h-4 w-4" />
+              Notifications
+              {unreadNotifications > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+                  {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                </span>
+              )}
+            </Link>
           )}
           {user ? (
             <>

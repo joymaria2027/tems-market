@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ShieldCheck, Users, DollarSign, ShoppingBag, Store, TrendingUp, TrendingDown,
@@ -135,6 +136,20 @@ const SuperAdminDashboard = () => {
     { id: "1", full_name: "Mariama Bah", email: "mariama@temsmarket.gm", phone: "+220 999 0002", status: "active", created_at: "2025-02-01" },
     { id: "2", full_name: "Ousman Sowe", email: "ousman@temsmarket.gm", phone: "+220 999 0003", status: "active", created_at: "2025-02-15" },
   ]);
+
+  // --- Fetch pending vendor applications count ---
+  const { data: pendingAppsCount } = useQuery({
+    queryKey: ["superadmin-pending-applications"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("vendor_applications")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending");
+      if (error) throw error;
+      return count ?? 0;
+    },
+    refetchInterval: 30_000,
+  });
 
   // --- Fetch platform settings ---
   useEffect(() => {
@@ -435,7 +450,7 @@ const SuperAdminDashboard = () => {
               <div className="space-y-1">
                 {[
                   { to: "/admin/users", label: "User Management", icon: Users },
-                  { to: "/admin/vendors", label: "Vendor Management", icon: Store },
+                  { to: "/admin/vendors", label: "Vendor Management", icon: Store, badge: pendingAppsCount ?? undefined },
                   { to: "/admin/orders", label: "Order Management", icon: ShoppingBag },
                   { to: "/admin/products", label: "Product Catalog", icon: Package },
                   { to: "/admin/coupons", label: "Coupons", icon: DollarSign },
@@ -451,6 +466,11 @@ const SuperAdminDashboard = () => {
                       <link.icon className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
                     <span className="text-sm text-foreground flex-1">{link.label}</span>
+                    {(link as any).badge && (
+                      <Badge variant="default" className="text-[10px] h-5 px-1.5 bg-orange-500 hover:bg-orange-600">
+                        {(link as any).badge} new
+                      </Badge>
+                    )}
                     <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
                   </Link>
                 ))}
