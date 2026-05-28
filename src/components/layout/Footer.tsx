@@ -1,6 +1,10 @@
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
-const Footer = () => (
+const Footer = () => {
+  const { profile } = useAuth();
+
+  return (
   <footer className="border-t border-border bg-card mt-16">
     <div className="container py-10 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
       <div>
@@ -19,7 +23,9 @@ const Footer = () => (
         <h5 className="font-semibold mb-3 text-foreground">Vendors</h5>
         <ul className="space-y-2 text-muted-foreground">
           <li><Link to="/become-a-vendor" className="hover:text-foreground transition-colors">Become a Vendor</Link></li>
-          <li><Link to="/vendor/dashboard" className="hover:text-foreground transition-colors">Vendor Dashboard</Link></li>
+          {profile?.role === "vendor" && (
+            <li><Link to="/vendor/dashboard" className="hover:text-foreground transition-colors">Vendor Dashboard</Link></li>
+          )}
         </ul>
       </div>
       <div>
@@ -34,7 +40,8 @@ const Footer = () => (
       © {new Date().getFullYear()} Tems Market. All rights reserved.
     </div>
   </footer>
-);
+  );
+};
 
 export default Footer;
 
