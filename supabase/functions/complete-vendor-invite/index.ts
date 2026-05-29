@@ -112,7 +112,7 @@ serve(async (req: Request) => {
       // Trigger missed — create manually
       const { error: insertErr } = await supabase.from("users").insert({
         id: authUser.user.id,
-        phone: app!.phone,
+        phone: phone,
         full_name: fullName,
         email: userEmail,
         role: "vendor",
@@ -129,7 +129,7 @@ serve(async (req: Request) => {
           role: "vendor",
           status: "active",
           full_name: fullName,
-          phone: app!.phone,
+          phone: phone,
           email: userEmail,
         })
         .eq("id", authUser.user.id);
