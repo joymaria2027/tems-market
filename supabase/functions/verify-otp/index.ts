@@ -94,7 +94,9 @@ serve(async (req: Request) => {
           phone: e164Phone,
           full_name: fullName,
           role: role,
-          status: role === "vendor" || role === "admin" || role === "superadmin" ? "pending" : "active",
+          // Vendors/admins from invite flow should be active (already approved).
+          // Only 'pending' for fresh signups where role is not set in metadata.
+          status: "active",
         });
       }
 
