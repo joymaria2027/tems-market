@@ -99,22 +99,44 @@ serve(async (req: Request) => {
       throw createErr;
     }
 
-    // ── 3. Update public.users role + status (the trigger
-    //    already creates it, but we overwrite to ensure vendor/active) ──
-    const { error: userUpdateErr } = await supabase
+    // ── 3. Ensure public.users record exists with vendor role ──
+    //    The handle_new_auth_user trigger should create it, but we
+    //    have a fallback if the trigger didn't fire.
+    const { data: existingUser } = await supabase
       .from("users")
-      .update({
+      .select("id")
+      .eq("id", authUser.user.id)
+      .maybeSingle();
+
+    if (!existingUser) {
+      // Trigger missed — create manually
+      const { error: insertErr } = await supabase.from("users").insert({
+        id: authUser.user.id,
+        phone: app!.phone,
+        full_name: fullName,
+        email: userEmail,
         role: "vendor",
         status: "active",
-        full_name: fullName,
-        phone: app!.phone,
-        email: userEmail,
-      })
-      .eq("id", authUser.user.id);
+      });
+      if (insertErr) {
+        console.error("complete-vendor-invite: user insert failed", insertErr.message);
+      }
+    } else {
+      // Trigger worked — update to ensure vendor/active
+      const { error: userUpdateErr } = await supabase
+        .from("users")
+        .update({
+          role: "vendor",
+          status: "active",
+          full_name: fullName,
+          phone: app!.phone,
+          email: userEmail,
+        })
+        .eq("id", authUser.user.id);
 
-    if (userUpdateErr) {
-      console.error("complete-vendor-invite: user update failed", userUpdateErr.message);
-      // Non-fatal — proceed
+      if (userUpdateErr) {
+        console.error("complete-vendor-invite: user update failed", userUpdateErr.message);
+      }
     }
 
     // ── 4. Create vendor_profiles record ──────────────────

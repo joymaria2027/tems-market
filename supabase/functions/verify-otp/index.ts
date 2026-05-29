@@ -85,13 +85,16 @@ serve(async (req: Request) => {
         .single();
 
       if (!existingUser) {
-        // Trigger missed — create manually
+        // Trigger missed — create manually, preserving any role from auth metadata
+        const userMeta = data.session.user.user_metadata || {};
+        const role = userMeta.role || "customer";
+        const fullName = userMeta.full_name || "";
         await serviceClient.from("users").insert({
           id: data.session.user.id,
           phone: e164Phone,
-          full_name: "",
-          role: "customer",
-          status: "active",
+          full_name: fullName,
+          role: role,
+          status: role === "vendor" || role === "admin" || role === "superadmin" ? "pending" : "active",
         });
       }
 
