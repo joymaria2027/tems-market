@@ -159,7 +159,7 @@ export default function Slideshow({
           key={i}
           className={`
             absolute inset-0 bg-cover bg-no-repeat
-            transition-all duration-[800ms] ease-in-out
+            transition-all duration-700 ease-in-out
             ${i === current ? "opacity-100 z-10 scale-100" : "opacity-0 z-0 scale-105"}
             ${slide.link ? "cursor-pointer" : ""}
           `}
