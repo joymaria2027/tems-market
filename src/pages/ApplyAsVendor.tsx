@@ -255,6 +255,7 @@ const ApplyAsVendor = () => {
       if (!form.fullName.trim()) errs.fullName = "Full name is required";
       if (!form.phone.trim()) errs.phone = "Phone number is required";
       if (!form.whatsapp.trim()) errs.whatsapp = "WhatsApp number is required";
+      if (!form.email.trim()) errs.email = "Email address is required";
       if (!form.physicalStore) errs.physicalStore = "Select an option";
       if (!form.hearAbout) errs.hearAbout = "Select how you heard about us";
     } else if (s === 3) {
@@ -716,14 +717,23 @@ const ApplyAsVendor = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">
+                    Email Address <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="email"
                     type="email"
-                    placeholder="Optional — for receipts and notifications"
+                    placeholder="you@example.com"
                     value={form.email}
                     onChange={(e) => updateField("email", e.target.value)}
+                    className={errors.email ? "border-destructive" : ""}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Your invite link will be sent to this address.
+                  </p>
+                  {errors.email && (
+                    <p className="text-xs text-destructive">{errors.email}</p>
+                  )}
                 </div>
 
                 <div className="space-y-3">

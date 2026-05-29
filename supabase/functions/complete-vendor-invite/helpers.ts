@@ -83,7 +83,10 @@ export function validateApplicationStatus(app: VendorApplication | null): Valida
 
 // ─── Build user metadata ───────────────────────────────────
 
-export function buildUserMetadata(app: VendorApplication): {
+export function buildUserMetadata(
+  app: VendorApplication,
+  providedEmail?: string | null,
+): {
   phone: string;
   email: string | null;
   fullName: string;
@@ -92,7 +95,8 @@ export function buildUserMetadata(app: VendorApplication): {
   const phone = app.phone.startsWith("+") ? app.phone : `+${app.phone}`;
   const extraData = app.extra_data || {};
   const fullName = extraData.fullName || app.business_name;
-  const email = extraData.email || null;
+  // Prefer email passed from the invite form; fall back to extra_data
+  const email = (providedEmail && providedEmail.trim()) ? providedEmail.trim() : (extraData.email || null);
 
   return {
     phone,

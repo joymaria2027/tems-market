@@ -191,6 +191,29 @@ describe("buildUserMetadata", () => {
     expect(buildUserMetadata(baseApp).email).toBeNull();
   });
 
+  it("should prefer providedEmail over extra_data email", () => {
+    const app = {
+      ...baseApp,
+      extra_data: { email: "old@example.com" },
+    };
+    const result = buildUserMetadata(app, "new@example.com");
+    expect(result.email).toBe("new@example.com");
+  });
+
+  it("should ignore empty providedEmail and use extra_data", () => {
+    const app = {
+      ...baseApp,
+      extra_data: { email: "saved@example.com" },
+    };
+    expect(buildUserMetadata(app, "").email).toBe("saved@example.com");
+    expect(buildUserMetadata(app, "  ").email).toBe("saved@example.com");
+  });
+
+  it("should use providedEmail even when extra_data has no email", () => {
+    const result = buildUserMetadata(baseApp, "vendor@example.com");
+    expect(result.email).toBe("vendor@example.com");
+  });
+
   it("should handle null extra_data", () => {
     const result = buildUserMetadata(baseApp);
     expect(result.fullName).toBe("Gambia Goods");

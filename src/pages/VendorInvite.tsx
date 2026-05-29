@@ -14,7 +14,7 @@ import Confetti from "@/components/Confetti";
 
 type InviteState =
   | { status: "loading" }
-  | { status: "valid"; businessName: string; applicationId: string; phone: string }
+  | { status: "valid"; businessName: string; applicationId: string; phone: string; email: string }
   | { status: "expired" }
   | { status: "used" }
   | { status: "invalid" }
@@ -25,6 +25,8 @@ const VendorInvite = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [state, setState] = useState<InviteState>({ status: "loading" });
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -43,7 +45,7 @@ const VendorInvite = () => {
       try {
         const { data, error } = await supabase
           .from("vendor_applications")
-          .select("id, business_name, phone, status, invite_expires_at")
+          .select("id, business_name, phone, status, invite_expires_at, extra_data")
           .eq("invite_token", token)
           .maybeSingle();
 
@@ -69,11 +71,14 @@ const VendorInvite = () => {
           return;
         }
 
+        const appEmail = (data.extra_data as Record<string, any>)?.email || "";
+        setEmail(appEmail);
         setState({
           status: "valid",
           businessName: data.business_name,
           applicationId: data.id,
           phone: data.phone,
+          email: appEmail,
         });
       } catch (err: any) {
         setState({ status: "error", message: err?.message || "Failed to validate invite" });
@@ -85,6 +90,17 @@ const VendorInvite = () => {
 
   const handleSetup = async () => {
     setPasswordError("");
+    setEmailError("");
+
+    // Validate email
+    if (!email.trim()) {
+      setEmailError("Email address is required");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setEmailError("Please enter a valid email address");
+      return;
+    }
 
     const validation = validatePasswordForm(password, confirmPassword);
     if (!validation.valid) {
@@ -99,6 +115,7 @@ const VendorInvite = () => {
         body: {
           token,
           password,
+          email: email.trim(),
         },
       });
 
@@ -330,6 +347,26 @@ const VendorInvite = () => {
                 <span className="font-medium">{state.phone}</span>
               </div>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">
+                Email Address <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setEmailError(""); }}
+                className={emailError ? "border-destructive" : ""}
+              />
+              {emailError && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <XCircle className="h-4 w-4" />
+                  {emailError}
+                </p>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">
                 Password <span className="text-destructive">*</span>

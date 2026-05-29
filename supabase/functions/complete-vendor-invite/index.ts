@@ -26,7 +26,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { token, password } = await req.json();
+    const { token, password, email } = await req.json();
 
     // ── Validate inputs ──────────────────────────────────
     const tokenCheck = validateToken(token);
@@ -69,15 +69,18 @@ serve(async (req: Request) => {
     }
 
     // ── 2. Create auth user ──────────────────────────────
-    const { phone, email, fullName, metadata } = buildUserMetadata(app!);
+    const { phone, email: userEmail, fullName, metadata } = buildUserMetadata(app!, email || null);
 
     const { data: authUser, error: createErr } = await supabase.auth.admin.createUser({
       phone,
-      email: email || undefined,
+      email: userEmail || undefined,
       password,
       email_confirm: true,
       phone_confirm: true,
-      user_metadata: metadata,
+      user_metadata: {
+        ...metadata,
+        email: userEmail,
+      },
     });
 
     if (createErr) {
@@ -105,7 +108,7 @@ serve(async (req: Request) => {
         status: "active",
         full_name: fullName,
         phone: app!.phone,
-        email: email,
+        email: userEmail,
       })
       .eq("id", authUser.user.id);
 

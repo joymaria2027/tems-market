@@ -12,6 +12,7 @@ import {
   Calendar,
   ShieldCheck,
   User,
+  Mail,
 } from "lucide-react";
 
 const Signup = () => {
@@ -20,6 +21,7 @@ const Signup = () => {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [dob, setDob] = useState("");
   const [role, setRole] = useState<"customer" | "affiliate">("customer");
   const [ageConfirm, setAgeConfirm] = useState(false);
@@ -48,6 +50,16 @@ const Signup = () => {
 
     if (!phone.trim()) {
       toast.error("Phone number is required");
+      return;
+    }
+
+    if (!email.trim()) {
+      toast.error("Email address is required");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error("Please enter a valid email address");
       return;
     }
 
@@ -89,6 +101,7 @@ const Signup = () => {
       // Update profile with additional info
       const { error: profileError } = await updateProfile({
         full_name: fullName,
+        email: email.trim(),
         date_of_birth: dob,
         age_verified: true, // Will be verified server-side too
         role,
@@ -147,6 +160,24 @@ const Signup = () => {
                     className="pl-9 h-11"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="email">
+                  Email Address <span className="text-destructive">*</span>
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="janedoe@example.com"
+                    className="pl-9 h-11"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                   />
                 </div>
