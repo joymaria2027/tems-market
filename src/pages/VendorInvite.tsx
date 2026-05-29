@@ -358,6 +358,7 @@ const VendorInvite = () => {
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setEmailError(""); }}
                 className={emailError ? "border-destructive" : ""}
+                autoComplete="email"
               />
               {emailError && (
                 <p className="text-sm text-destructive flex items-center gap-1">
@@ -377,6 +378,7 @@ const VendorInvite = () => {
                 placeholder="At least 6 characters"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
+                autoComplete="new-password"
               />
             </div>
 
@@ -390,6 +392,7 @@ const VendorInvite = () => {
                 placeholder="Repeat your password"
                 value={confirmPassword}
                 onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(""); }}
+                autoComplete="new-password"
               />
             </div>
 

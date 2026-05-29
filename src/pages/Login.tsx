@@ -127,18 +127,18 @@ const Login = () => {
               <div className="space-y-2">
                 <Label htmlFor="code">Verification Code</Label>
                 <div className="relative">
-                  <MessageSquareCode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="code"
-                    type="text"
-                    maxLength={6}
-                    placeholder="123456"
-                    className="pl-10 h-12 letter-spacing-wide text-center font-mono"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    required
-                    pattern="[0-9]{6}"
-                  />
+                  <MessageSquareCode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />                    <Input
+                      id="code"
+                      type="text"
+                      maxLength={6}
+                      placeholder="123456"
+                      className="pl-10 h-12 letter-spacing-wide text-center font-mono"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      required
+                      pattern="[0-9]{6}"
+                      autoComplete="one-time-code"
+                    />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Didn't receive the code?{" "}
@@ -165,6 +165,7 @@ const Login = () => {
                     onChange={(e) => setPhone(e.target.value)}
                     required
                     pattern="[0-9+\s]{7,15}"
+                    autoComplete="tel"
                   />
                 </div>
               </div>
@@ -207,6 +208,7 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoComplete="email"
                 />
               </div>
             </div>
@@ -220,6 +222,7 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
               />
             </div>
             <Button type="submit" className="w-full h-12 font-semibold" disabled={loading}>

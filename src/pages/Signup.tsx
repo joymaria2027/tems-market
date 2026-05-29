@@ -161,6 +161,7 @@ const Signup = () => {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
+                    autoComplete="name"
                   />
                 </div>
               </div>
@@ -179,6 +180,7 @@ const Signup = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    autoComplete="email"
                   />
                 </div>
               </div>
@@ -196,6 +198,7 @@ const Signup = () => {
                       onChange={(e) => setPhone(e.target.value)}
                       required
                       pattern="\\+220[0-9]{7,8}"
+                      autoComplete="tel"
                     />
                   </div>
                 </div>
@@ -212,6 +215,7 @@ const Signup = () => {
                       onChange={(e) => setDob(e.target.value)}
                       required
                       max={new Date().toISOString().split("T")[0]} // Prevent future dates
+                      autoComplete="bday"
                     />
                   </div>
                 </div>
@@ -269,18 +273,18 @@ const Signup = () => {
             <div className="space-y-2">
               <Label htmlFor="code">Verification Code</Label>
               <div className="relative">
-                <MessageSquareCode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="code"
-                  type="text"
-                  maxLength={6}
-                  placeholder="123456"
-                  className="pl-10 h-12 letter-spacing-wide text-center font-mono"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  required
-                  pattern="[0-9]{6}"
-                />
+                <MessageSquareCode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />                  <Input
+                    id="code"
+                    type="text"
+                    maxLength={6}
+                    placeholder="123456"
+                    className="pl-10 h-12 letter-spacing-wide text-center font-mono"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    required
+                    pattern="[0-9]{6}"
+                    autoComplete="one-time-code"
+                  />
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Didn't receive the code?{" "}
