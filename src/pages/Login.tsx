@@ -37,13 +37,19 @@ const Login = () => {
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await verifyOTP(phone, code);
+    const { error, profile } = await verifyOTP(phone, code);
     setLoading(false);
     if (error) {
       toast.error(error.message);
     } else {
       toast.success("Welcome back!");
-      navigate("/");
+      if (profile?.role === "vendor") {
+        navigate("/vendor/dashboard");
+      } else if (profile?.role === "admin" || profile?.role === "superadmin") {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/");
+      }
     }
   };
 

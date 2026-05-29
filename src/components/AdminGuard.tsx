@@ -4,9 +4,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
 const AdminGuard = ({ children }: { children: ReactNode }) => {
-  const { profile, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
 
   if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Profile not loaded yet but user is logged in — keep waiting
+  if (user && !profile) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

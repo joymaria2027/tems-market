@@ -33,7 +33,7 @@ interface AuthContextType {
   verifyOTP: (
     phone: string,
     code: string,
-  ) => Promise<{ error: Error | null; session?: Session }>;
+  ) => Promise<{ error: Error | null; session?: Session; profile?: Profile | null }>;
   // Email/password sign in (for superadmin)
   signInWithEmail: (
     email: string,
@@ -131,18 +131,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        setTimeout(() => fetchProfile(session.user.id), 0);
+        await fetchProfile(session.user.id);
       } else {
         setProfile(null);
       }
       setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        await fetchProfile(session.user.id);
       }
       setLoading(false);
     });
@@ -181,7 +181,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: setSessionError as Error };
     }
 
-    return { error: null, session: data.session as Session };
+    // Eagerly fetch profile so Login can immediately access it for role-based redirect
+    const profile = await fetchProfile(data.session.user.id);
+
+    return { error: null, session: data.session as Session, profile: profile as Profile | null };
   };
 
   // ─── Email/password sign in (admin/superadmin) ─────────────────────────────────
