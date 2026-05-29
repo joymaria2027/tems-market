@@ -238,7 +238,7 @@ LAYER 6 — Polish & Launch (requires all features working)
   - **Files:** `app/(auth)/login.tsx` (extend with superadmin path), `supabase/functions/send-otp/index.ts` (extend for 2FA flow)
 
 - [ ] **T1.11: Build invite-user Edge Function**
-  - **What:** `supabase/functions/invite-user/index.ts`. Accepts `{ phone, role: 'admin' | 'vendor', invitedBy }`. Creates user record with status = 'pending' and role. Generates a signed invite token (stored in Supabase, expires in 48h). Sends Meta WhatsApp / Africa's Talking SMS with deep link: `temsmarket://invite/{token}` or `https://temsmarket.app/invite/{token}`.
+  - **What:** `supabase/functions/invite-user/index.ts`. Accepts `{ phone, role: 'admin' | 'vendor', invitedBy }`. Creates user record with status = 'pending' and role. Generates a signed invite token (stored in Supabase, expires in 48h). Sends Meta WhatsApp / Africa's Talking SMS with deep link: `temsmarket://invite/{token}` or `https://temsmarket.com/invite/{token}`.
   - **Acceptance:** Calling the function with a phone number sends an SMS with a working deep link within 30 seconds.
   - **Verify:** Manual call via Supabase Studio → check SMS on test phone
   - **Files:** `supabase/functions/invite-user/index.ts`
@@ -432,7 +432,7 @@ Pass: Vendor price enforcement works server-side (integration test)
   - **Files:** `supabase/functions/modempay-webhook/index.ts`, `lib/modempay/webhooks.ts`, `__tests__/lib/webhooks.test.ts`
 
 - [ ] **T3.6: Build affiliate link generation and share flow**
-  - **What:** `hooks/useAffiliateLink.ts` — given a `listing_id`, checks if affiliate already has a link for it (SELECT from `affiliate_links`). If not, generates a `short_code` using `nanoid(10)` (alphanumeric, URL-safe), creates record. Returns the shareable URL `https://temsmarket.app/p/{short_code}`.
+  - **What:** `hooks/useAffiliateLink.ts` — given a `listing_id`, checks if affiliate already has a link for it (SELECT from `affiliate_links`). If not, generates a `short_code` using `nanoid(10)` (alphanumeric, URL-safe), creates record. Returns the shareable URL `https://temsmarket.com/p/{short_code}`.
     - `app/(affiliate)/products/[id].tsx` — "Get My Link" button calls this hook. Shows link in a modal with share options.
     - `components/affiliate/ShareSheet.tsx` — uses `expo-sharing` and `expo-clipboard`. Buttons: WhatsApp (deep link `whatsapp://send?text=...`), Facebook, TikTok, Instagram, Copy. Fires PostHog `affiliate_link_shared` event with channel.
     - PostHog `affiliate_link_generated` event fires on first generation.
@@ -441,7 +441,7 @@ Pass: Vendor price enforcement works server-side (integration test)
   - **Files:** `hooks/useAffiliateLink.ts`, `components/affiliate/ShareSheet.tsx`, `lib/utils/short-code.ts`, `__tests__/lib/short-code.test.ts`
 
 - [ ] **T3.7: Build affiliate link deep link handler**
-  - **What:** `app/p/[code].tsx` — when app opens from `temsmarket.app/p/{code}` deep link, looks up `affiliate_links` by short_code, stores `affiliate_link_id` in `checkoutStore`, navigates to the vendor listing product detail screen. Fires PostHog `affiliate_link_clicked` event.
+  - **What:** `app/p/[code].tsx` — when app opens from `temsmarket.com/p/{code}` deep link, looks up `affiliate_links` by short_code, stores `affiliate_link_id` in `checkoutStore`, navigates to the vendor listing product detail screen. Fires PostHog `affiliate_link_clicked` event.
     - Universal Links / App Links configured in `app.json`.
     - `website/app/p/[code]/page.tsx` — web fallback: shows product info + "Download Tems Market" button (App Store + Play Store links). Also fires PostHog event via web snippet.
   - **Acceptance:** Tapping the affiliate link on a device with the app opens the correct product screen. `affiliate_link_id` is set in `checkoutStore`. Tapping on a device without the app opens the website product page with download buttons.
@@ -458,7 +458,7 @@ Pass: Vendor price enforcement works server-side (integration test)
 
 - [ ] **T3.9: Build gift card purchase flow**
   - **What:** `app/(customer)/checkout/gift-card.tsx` — form: denomination (preset tiers: GMD 100, 200, 500, 1000 + custom), recipient email, recipient name, personal message (optional). On submit: creates payment via ModemPay for the denomination. On webhook success: generate 16-char alphanumeric code via `nanoid`, insert `gift_cards` record, call `send-gift-card-email` Edge Function.
-    - `supabase/functions/send-gift-card-email/index.ts` — calls Resend with the gift card HTML email template (branded, with code, value, message, "Shop Now" button → `https://temsmarket.app/redeem/{code}`).
+    - `supabase/functions/send-gift-card-email/index.ts` — calls Resend with the gift card HTML email template (branded, with code, value, message, "Shop Now" button → `https://temsmarket.com/redeem/{code}`).
     - `website/app/redeem/[code]/page.tsx` — web page that shows the gift card details + app download link.
   - **Acceptance:** Full flow: pay → Resend email delivered to recipient with correct code. Code is exactly 16 characters, uppercase alphanumeric. gift_cards record in DB with correct status.
   - **Verify:** Purchase test gift card → check email delivery via Resend dashboard → check gift_cards in Studio.

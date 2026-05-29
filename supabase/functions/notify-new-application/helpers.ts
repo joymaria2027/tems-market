@@ -25,7 +25,7 @@ export function esc(str: string): string {
  * Build a branded HTML email template for new vendor application notifications.
  */
 export function buildEmailHtml(data: EmailData): string {
-  const adminUrl = "https://temsmarket.app/admin/vendors";
+  const adminUrl = "https://temsmarket.com/admin/vendors";
   return `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
       <div style="background:#F97316;padding:24px;text-align:center">

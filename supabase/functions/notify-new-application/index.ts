@@ -103,7 +103,7 @@ serve(async (req: Request) => {
               Authorization: `Bearer ${RESEND_API_KEY}`,
             },
             body: JSON.stringify({
-              from: "Tems Market <onboarding@resend.dev>",
+              from: "Tems Market <admin@temsmarket.com>",
               to: [admin.email],
               subject: `New Vendor Application: ${businessName}`,
               html,

@@ -43,7 +43,7 @@ const VendorInvite = () => {
       try {
         const { data, error } = await supabase
           .from("vendor_applications")
-          .select("id, business_name, status, invite_expires_at")
+          .select("id, business_name, phone, status, invite_expires_at")
           .eq("invite_token", token)
           .maybeSingle();
 

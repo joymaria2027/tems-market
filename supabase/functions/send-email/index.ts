@@ -166,7 +166,7 @@ function buildOrderConfirmationHtml(data: {
             <tr style="font-weight:bold;font-size:18px"><td colspan="2" style="padding:8px 0;border-top:2px solid #ddd">Total</td><td style="padding:8px 0;border-top:2px solid #ddd;text-align:right">${formatGMD(data.total)}</td></tr>
           </table>
           <p style="margin-top:16px"><strong>Payment Method:</strong> Cash on Delivery</p>
-          <p style="margin-top:24px;color:#666;font-size:13px">If you have any questions, please contact us at support@temsmarket.com</p>
+          <p style="margin-top:24px;color:#666;font-size:13px">If you have any questions, please contact us at info@temsmarket.com</p>
         </div>
       </div>`,
   };
@@ -274,7 +274,7 @@ function buildVendorApprovedHtml(data: VendorApprovedData): { subject: string; h
               Accept Invitation →
             </a>
           </div>
-          <p style="color:#666;font-size:13px">This invite link will expire in 7 days. If you have any questions, reply to this email or contact support@temsmarket.com.</p>
+          <p style="color:#666;font-size:13px">This invite link will expire in 7 days. If you have any questions, reply to this email or contact assist@temsmarket.com.</p>
         </div>
       </div>`,
   };
@@ -299,6 +299,7 @@ serve(async (req) => {
     let subject: string;
     let html: string;
     let to: string;
+    let fromAddr: string;
 
     switch (payload.type) {
       case "order_confirmation": {
@@ -329,6 +330,7 @@ serve(async (req) => {
         const shopperEmail = await getEmailByUserId(userId);
         if (!shopperEmail) throw new Error("Shopper email not found");
         to = shopperEmail;
+        fromAddr = "Tems Market <noreply@temsmarket.com>";
 
         const productTitle = (order as any).vendor_listings?.products?.title || "Product";
         const unitPrice = Number(order.unit_price);
@@ -355,6 +357,7 @@ serve(async (req) => {
         const email = await getEmailByUserId(payload.vendorId);
         if (!email) throw new Error("Vendor email not found");
         to = email;
+        fromAddr = "Tems Market <vendor@temsmarket.com>";
         const result = buildNewSaleAlertHtml(payload);
         subject = result.subject;
         html = result.html;
@@ -366,6 +369,7 @@ serve(async (req) => {
         const email = await getEmailByUserId(payload.vendorId);
         if (!email) throw new Error("Vendor email not found");
         to = email;
+        fromAddr = "Tems Market <vendor@temsmarket.com>";
         const result = buildProductApprovedHtml(payload);
         subject = result.subject;
         html = result.html;
@@ -377,6 +381,7 @@ serve(async (req) => {
         const email = await getEmailByUserId(payload.vendorId);
         if (!email) throw new Error("Vendor email not found");
         to = email;
+        fromAddr = "Tems Market <vendor@temsmarket.com>";
         const result = buildProductRejectedHtml(payload);
         subject = result.subject;
         html = result.html;
@@ -386,6 +391,7 @@ serve(async (req) => {
         if (!isAdmin) throw new Error("Unauthorized");
 
         to = payload.to;
+        fromAddr = "Tems Market <noreply@temsmarket.com>";
         const result = buildGiftCardHtml(payload);
         subject = result.subject;
         html = result.html;
@@ -395,6 +401,7 @@ serve(async (req) => {
         if (!isAdmin) throw new Error("Unauthorized");
 
         to = payload.to;
+        fromAddr = "Tems Market <vendor@temsmarket.com>";
         const result = buildVendorApprovedHtml(payload);
         subject = result.subject;
         html = result.html;
@@ -411,7 +418,7 @@ serve(async (req) => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Tems Market <onboarding@resend.dev>",
+        from: fromAddr,
         to: [to],
         subject,
         html,

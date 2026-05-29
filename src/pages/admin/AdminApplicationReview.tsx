@@ -123,11 +123,12 @@ const AdminApplicationReview = () => {
 
       // Send SMS/WhatsApp notification via send-notification Edge Function
       if (app?.phone) {
+        const inviteMessage = `You've been approved to sell on Tems Market! Set up your vendor account here: ${link}`;
         supabase.functions.invoke("send-notification", {
           body: {
-            type: "new_vendor",
+            type: "invite",
             phone: app.phone,
-            link,
+            message: inviteMessage,
           },
         }).catch((err) => console.error("Failed to send approval SMS:", err));
       }

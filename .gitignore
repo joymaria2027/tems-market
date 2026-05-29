@@ -34,6 +34,7 @@ supabase/.temp/
 supabase/.branches/
 types/
 *.bak
+*~
 
 # OS
 .DS_Store

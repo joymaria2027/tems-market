@@ -1608,7 +1608,7 @@ eas build --platform ios --profile preview   # Build succeeds
   - Acceptance: `generateShortCode()` returns cryptographically random 8-char alphanumeric;
     `getOrCreateAffiliateLink(affiliateId, listingId)` returns existing link or creates new one;
     short_code is unique (DB unique constraint enforced + retry on collision);
-    link URL format: `temsmarket.app/p/{short_code}`
+    link URL format: `temsmarket.com/p/{short_code}`
   - Verify: `bunx jest __tests__/lib/short-code.test.ts`; create 100 codes — all unique
   - Files:
     - `lib/utils/short-code.ts`
@@ -1620,7 +1620,7 @@ eas build --platform ios --profile preview   # Build succeeds
 - [ ] **Task P3-08: Universal Links + App Links setup**
   - Acceptance: `apple-app-site-association` file served from website at `/.well-known/`;
     `assetlinks.json` served from website at `/.well-known/`;
-    tapping `temsmarket.app/p/{code}` on iOS (with app installed) opens app directly;
+    tapping `temsmarket.com/p/{code}` on iOS (with app installed) opens app directly;
     tapping on Android (with app installed) opens app directly;
     tapping without app installed → website product page
   - Verify: Test on physical device with app installed; test without app installed
@@ -1838,7 +1838,7 @@ eas build --platform ios --profile preview   # Build succeeds
 ---
 
 - [ ] **Task P4-04: Marketing website — landing page**
-  - Acceptance: Next.js site at `temsmarket.app`; hero section with tagline;
+  - Acceptance: Next.js site at `temsmarket.com`; hero section with tagline;
     "How it works" section (3 steps for each role: vendor, affiliate, customer);
     App Store button + Play Store button as primary CTAs;
     `/p/[code]` affiliate link landing pages functional (from P3-09)

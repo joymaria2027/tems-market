@@ -86,7 +86,7 @@ app/(auth)/invite/[token].tsx:
 
 Configure Universal Links (iOS) and App Links (Android) in app.json:
 - Scheme: temsmarket
-- Host: temsmarket.app
+- Host: temsmarket.com
 
 ### Step 6: Role-based root navigator
 app/_layout.tsx:
@@ -262,8 +262,8 @@ async function sendSMS(to: string, body: string): Promise<boolean> {
 - Creates user record in public.users with status = 'pending'
 - Creates invite_tokens record (expires 48h)
 - Calls sendWhatsApp(phone, message):
-  Admin: "You've been added as a Tems Market Admin. Tap to set up your account: https://temsmarket.app/invite/{token}"
-  Vendor: "You've been invited to sell on Tems Market. Tap to register: https://temsmarket.app/invite/{token}"
+  Admin: "You've been added as a Tems Market Admin. Tap to set up your account: https://temsmarket.com/invite/{token}"
+  Vendor: "You've been invited to sell on Tems Market. Tap to register: https://temsmarket.com/invite/{token}"
 - Returns { success: true, userId: string }
 
 ## Environment variables needed
@@ -674,7 +674,7 @@ hooks/useAffiliateLink.ts:
 - Check affiliate_links table for existing record (affiliate_id + listing_id)
 - If exists: return existing short_code
 - If not: generate short_code with nanoid(10) (url-safe alphabet), insert affiliate_links record
-- Return shareable URL: https://temsmarket.app/p/{short_code}
+- Return shareable URL: https://temsmarket.com/p/{short_code}
 
 app/(affiliate)/products/[id].tsx:
 - Product detail for affiliates (same layout as customer but CTA = "Get My Link")
@@ -750,7 +750,7 @@ app/(customer)/checkout/gift-card.tsx:
 supabase/functions/send-gift-card-email/index.ts:
 - Accepts { recipientEmail, recipientName, senderName, personalMessage, code, valueGmd, expiresAt }
 - Calls Resend API with branded HTML email template
-- Email content: Tems Market logo, "You received a gift card!", value display, code in large monospace font, personal message, expiry date, "Shop on Tems Market" button linking to https://temsmarket.app/redeem/{code}
+- Email content: Tems Market logo, "You received a gift card!", value display, code in large monospace font, personal message, expiry date, "Shop on Tems Market" button linking to https://temsmarket.com/redeem/{code}
 - Log to notifications_log
 - Env var: RESEND_API_KEY
 

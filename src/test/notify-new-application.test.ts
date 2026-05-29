@@ -69,7 +69,7 @@ describe("buildEmailHtml", () => {
 
   it("should link to admin/vendors", () => {
     const html = buildEmailHtml(data);
-    expect(html).toContain("https://temsmarket.app/admin/vendors");
+    expect(html).toContain("https://temsmarket.com/admin/vendors");
   });
 
   it("should have a 'New Vendor Application' heading", () => {
