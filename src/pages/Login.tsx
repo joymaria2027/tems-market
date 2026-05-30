@@ -56,8 +56,20 @@ const Login = () => {
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    // Safety timeout: if fetchProfile in onAuthStateChange hangs
+    // (Supabase auth-js awaits callbacks in _notifyAllSubscribers),
+    // this prevents the UI from being stuck at "Signing in…" forever.
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+      toast.error(
+        "Sign in timed out. The session may still have been created — try refreshing the page.",
+      );
+    }, 25000);
+
     try {
       const { error } = await signInWithEmail(email, password);
+      clearTimeout(safetyTimer);
       if (error) {
         toast.error(error.message);
       } else {
@@ -65,10 +77,12 @@ const Login = () => {
         navigate("/");
       }
     } catch (err) {
+      clearTimeout(safetyTimer);
       const msg = err instanceof Error ? err.message : "An unexpected error occurred";
       console.error("Email sign-in error:", err);
       toast.error(msg);
     } finally {
+      clearTimeout(safetyTimer);
       setLoading(false);
     }
   };
