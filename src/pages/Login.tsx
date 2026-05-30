@@ -56,13 +56,20 @@ const Login = () => {
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await signInWithEmail(email, password);
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Signed in successfully!");
-      navigate("/");
+    try {
+      const { error } = await signInWithEmail(email, password);
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Signed in successfully!");
+        navigate("/");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "An unexpected error occurred";
+      console.error("Email sign-in error:", err);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
