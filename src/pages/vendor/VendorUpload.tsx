@@ -88,7 +88,8 @@ const VendorUpload = () => {
       toast({ title: "Missing fields", description: "Please fill title, category, price, and add at least one image.", variant: "destructive" });
       return;
     }
-    if (parseFloat(price) <= 0) {
+    const priceNum = parseFloat(price);
+    if (isNaN(priceNum) || priceNum <= 0) {
       toast({ title: "Invalid price", description: "Price must be greater than 0.", variant: "destructive" });
       return;
     }
