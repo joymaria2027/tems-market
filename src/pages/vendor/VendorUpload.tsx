@@ -34,8 +34,7 @@ const VendorUpload = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [categorySlug, setCategorySlug] = useState("");
 
   // Ticket-specific fields
   const [eventDate, setEventDate] = useState("");
@@ -57,8 +56,7 @@ const VendorUpload = () => {
     },
   });
 
-  const selectedCategory = categories.find((c) => c.id === categoryId);
-  const isTicketCategory = selectedCategory ? TICKET_CATEGORY_SLUGS.has(selectedCategory.slug) : false;
+  const isTicketCategory = TICKET_CATEGORY_SLUGS.has(categorySlug);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const incoming = Array.from(files).filter((f) => f.type.startsWith("image/"));
@@ -86,8 +84,12 @@ const VendorUpload = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!title || !price || images.length === 0) {
-      toast({ title: "Missing fields", description: "Please fill title, price, and add at least one image.", variant: "destructive" });
+    if (!title || !price || !categorySlug || images.length === 0) {
+      toast({ title: "Missing fields", description: "Please fill title, category, price, and add at least one image.", variant: "destructive" });
+      return;
+    }
+    if (parseFloat(price) <= 0) {
+      toast({ title: "Invalid price", description: "Price must be greater than 0.", variant: "destructive" });
       return;
     }
 
@@ -121,8 +123,6 @@ const VendorUpload = () => {
         uploadedUrls.push(urlData.publicUrl);
       }
 
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Date.now();
-
       const ticketMeta = isTicketCategory
         ? {
             event_date: eventDate || null,
@@ -134,18 +134,17 @@ const VendorUpload = () => {
         : null;
 
       const { error: insertError } = await supabase.from("products").insert({
-        vendor_id: user.id,
         title,
-        slug,
         description: description || null,
-        price: parseFloat(price),
-        stock: parseInt(stock) || 0,
-        category_id: categoryId || null,
+        category: categorySlug,
+        images: uploadedUrls,
+        base_price: parseFloat(price),
+        inventory_type: "vendor_submitted",
+        status: "pending_review",
+        created_by: user.id,
+        submitted_by_vendor: user.id,
         product_type: isTicketCategory ? "ticket" : "physical",
         ticket_meta: ticketMeta,
-        sponsored: false,
-        images: uploadedUrls,
-        status: "pending",
       });
 
       if (insertError) throw insertError;
@@ -177,28 +176,22 @@ const VendorUpload = () => {
             <Textarea id="desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe your product..." rows={4} />
           </div>
 
-          {/* Price & Stock */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="price">Price (GMD) *</Label>
-              <Input id="price" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="stock">Stock Quantity</Label>
-              <Input id="stock" type="number" min="0" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="0" />
-            </div>
+          {/* Price */}
+          <div className="space-y-2">
+            <Label htmlFor="price">Price (GMD) *</Label>
+            <Input id="price" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" />
           </div>
 
           {/* Category */}
           <div className="space-y-2">
             <Label>Category</Label>
-            <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setEventDate(""); setVenue(""); setValidFrom(""); setValidTo(""); setTicketTerms(""); }}>
+            <Select value={categorySlug} onValueChange={(v) => { setCategorySlug(v); setEventDate(""); setVenue(""); setValidFrom(""); setValidTo(""); setTicketTerms(""); }}>
               <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
               <SelectContent>
                 {categories
                   .filter((c) => canCreateTickets || !TICKET_CATEGORY_SLUGS.has(c.slug))
                   .map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.slug}>{c.name}</SelectItem>
                   ))}
               </SelectContent>
             </Select>
