@@ -829,8 +829,11 @@ export type Database = {
           id: string
           images: string[]
           inventory_type: Database["public"]["Enums"]["inventory_type"]
+          product_type: string
           status: Database["public"]["Enums"]["product_status"]
+          stock: number
           submitted_by_vendor: string | null
+          ticket_meta: Json | null
           title: string
           updated_at: string
         }
@@ -843,8 +846,11 @@ export type Database = {
           id?: string
           images?: string[]
           inventory_type?: Database["public"]["Enums"]["inventory_type"]
+          product_type?: string
           status?: Database["public"]["Enums"]["product_status"]
+          stock?: number
           submitted_by_vendor?: string | null
+          ticket_meta?: Json | null
           title: string
           updated_at?: string
         }
@@ -857,8 +863,11 @@ export type Database = {
           id?: string
           images?: string[]
           inventory_type?: Database["public"]["Enums"]["inventory_type"]
+          product_type?: string
           status?: Database["public"]["Enums"]["product_status"]
+          stock?: number
           submitted_by_vendor?: string | null
+          ticket_meta?: Json | null
           title?: string
           updated_at?: string
         }

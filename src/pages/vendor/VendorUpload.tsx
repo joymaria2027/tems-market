@@ -34,6 +34,7 @@ const VendorUpload = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("");
   const [categorySlug, setCategorySlug] = useState("");
 
   // Ticket-specific fields
@@ -84,13 +85,18 @@ const VendorUpload = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!title || !price || !categorySlug || images.length === 0) {
-      toast({ title: "Missing fields", description: "Please fill title, category, price, and add at least one image.", variant: "destructive" });
+    if (!title || !price || !stock || !categorySlug || images.length === 0) {
+      toast({ title: "Missing fields", description: "Please fill title, category, price, stock, and add at least one image.", variant: "destructive" });
       return;
     }
     const priceNum = parseFloat(price);
     if (isNaN(priceNum) || priceNum <= 0) {
       toast({ title: "Invalid price", description: "Price must be greater than 0.", variant: "destructive" });
+      return;
+    }
+    const stockNum = parseInt(stock);
+    if (isNaN(stockNum) || stockNum < 1) {
+      toast({ title: "Invalid stock", description: "Stock must be at least 1.", variant: "destructive" });
       return;
     }
 
@@ -140,6 +146,7 @@ const VendorUpload = () => {
         category: categorySlug,
         images: uploadedUrls,
         base_price: parseFloat(price),
+        stock: parseInt(stock),
         inventory_type: "vendor_submitted",
         status: "pending_review",
         created_by: user.id,
@@ -181,6 +188,12 @@ const VendorUpload = () => {
           <div className="space-y-2">
             <Label htmlFor="price">Price (GMD) *</Label>
             <Input id="price" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" />
+          </div>
+
+          {/* Stock / Quantity */}
+          <div className="space-y-2">
+            <Label htmlFor="stock">Stock / Quantity *</Label>
+            <Input id="stock" type="number" min="1" step="1" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="How many units available?" />
           </div>
 
           {/* Category */}
