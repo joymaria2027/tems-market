@@ -39,3 +39,7 @@ types/
 # OS
 .DS_Store
 
+# Agents and local test artifacts
+.agents/
+playwright-report/
+test-results/
