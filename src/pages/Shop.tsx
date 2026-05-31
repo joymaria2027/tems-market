@@ -30,8 +30,8 @@ const Shop = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, categories(name, slug), profiles(name)")
-        .eq("status", "approved")
+        .select("*, categories(name, slug), profiles:users!products_submitted_by_vendor_fkey(name:full_name)")
+        .eq("status", "active")
         .order("sponsored", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;

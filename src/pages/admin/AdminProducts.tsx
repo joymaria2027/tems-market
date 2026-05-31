@@ -26,8 +26,8 @@ const AdminProducts = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, title, price, images, status, created_at, vendor_id, profiles(name)")
-        .eq("status", "pending")
+        .select("id, title, price, images, status, created_at, vendor_id, profiles:users!products_submitted_by_vendor_fkey(name:full_name)")
+        .eq("status", "pending_review")
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data ?? [];
@@ -36,7 +36,7 @@ const AdminProducts = () => {
 
   const approve = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("products").update({ status: "approved" }).eq("id", id);
+      const { error } = await supabase.from("products").update({ status: "active" }).eq("id", id);
       if (error) throw error;
 
       const product = products?.find((p) => p.id === id);
@@ -64,7 +64,7 @@ const AdminProducts = () => {
 
   const reject = useMutation({
     mutationFn: async ({ id, note }: { id: string; note: string }) => {
-      const { error } = await supabase.from("products").update({ status: "rejected", rejection_note: note }).eq("id", id);
+      const { error } = await supabase.from("products").update({ status: "inactive", rejection_note: note }).eq("id", id);
       if (error) throw error;
 
       const product = products?.find((p) => p.id === id);

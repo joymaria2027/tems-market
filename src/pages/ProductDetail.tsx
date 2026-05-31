@@ -30,9 +30,9 @@ const ProductDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, categories(name), profiles!products_vendor_id_fkey(name, store_name)")
+        .select("*, categories(name), profiles:users!products_submitted_by_vendor_fkey(name:full_name)")
         .eq("slug", slug!)
-        .eq("status", "approved")
+        .eq("status", "active")
         .maybeSingle();
       if (error) throw error;
       return data;
